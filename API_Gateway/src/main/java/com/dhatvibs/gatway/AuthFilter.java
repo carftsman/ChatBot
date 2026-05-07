@@ -76,6 +76,8 @@ public class AuthFilter extends
                     .header("X-User-Id", userId)
                     .header("X-App-Id",  appId)
                     .build();
+                
+                  
 
                 return chain.filter(
                     exchange.mutate()

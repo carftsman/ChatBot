@@ -24,6 +24,12 @@ public class CbChatSession {
 
     @Column(name = "status")
     private String status;
+    
+ // orderId user selected before starting chat
+    @Column(name = "context_order_id",
+            columnDefinition = "uuid")
+    private UUID contextOrderId;
+
 
     @Column(name = "started_at")
     private LocalDateTime startedAt;

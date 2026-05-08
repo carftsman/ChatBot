@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import com.dhatvibs.modules.entities.chat.CbPayment;
 
-import feign.Param;
+import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface CbPaymentRepository

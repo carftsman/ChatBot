@@ -108,6 +108,13 @@
 <dependency>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-websocket</artifactId>
+</dependency> 
+
+
+	<!-- HTTP client to call LLM API -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-webflux</artifactId>
 </dependency>
 		
 		

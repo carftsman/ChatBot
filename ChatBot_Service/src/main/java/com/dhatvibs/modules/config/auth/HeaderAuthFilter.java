@@ -82,6 +82,7 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
 
         // Skip filter for public endpoints
         if (path.startsWith("/auth/")
+        		|| path.startsWith("/rider/") 
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/webjars")) {

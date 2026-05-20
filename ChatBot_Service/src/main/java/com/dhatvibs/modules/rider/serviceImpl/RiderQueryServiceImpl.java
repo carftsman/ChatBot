@@ -63,202 +63,153 @@ public class RiderQueryServiceImpl
              + safe(d, "pendingHandover");
     }
 
+	/*
+	 * @Override public String getOrderStats(String token) { JsonNode d =
+	 * riderApiClient .getOrderStats(token); log.info("getOrderStats raw: {}", d);
+	 * if (d == null) return "Unable to fetch order stats.";
+	 * 
+	 * JsonNode stats = d.path("stats"); if (stats.isMissingNode()) return
+	 * "Unable to fetch order stats.";
+	 * 
+	 * return "Order Summary:\n" + "Total Delivered: " +
+	 * stats.path("delivered").asText("0") + "\n" + "Cancelled: " +
+	 * stats.path("rejected").asText("0") + "\n" + "Total Notified: " +
+	 * stats.path("totalNotified").asText("0"); }
+	 */
+    
+	/*
+	 * @Override public String getOrderStats(String token) { JsonNode d =
+	 * riderApiClient .getOrderStats(token);
+	 * 
+	 * log.info("getOrderStats raw: {}", d);
+	 * 
+	 * if (d == null) return "Unable to fetch order stats.";
+	 * 
+	 * // Try nested stats object first JsonNode stats = d.path("stats");
+	 * 
+	 * if (!stats.isMissingNode() && stats.isObject()) { return "Order Summary:\n" +
+	 * "Total Delivered: " + getFirst(stats, "delivered", "totalDelivered",
+	 * "completedOrders") + "\n" + "Cancelled: " + getFirst(stats, "rejected",
+	 * "cancelled", "cancelledOrders") + "\n" + "Total Assigned: " + getFirst(stats,
+	 * "totalNotified", "totalAssigned", "totalOrders"); }
+	 * 
+	 * // Try direct fields return "Order Summary:\n" + "Total Delivered: " +
+	 * getFirst(d, "delivered", "totalDelivered", "completedOrders") + "\n" +
+	 * "Cancelled: " + getFirst(d, "cancelled", "rejected") + "\n" +
+	 * "Total Assigned: " + getFirst(d, "totalNotified", "totalAssigned", "total");
+	 * }
+	 */
+    
     @Override
-    public String getOrderStats(String token) {
+    public String getOrderDetails(String orderId) {
+        if (orderId == null || orderId.isBlank()) {
+            return "No order selected. Please tap "
+                 + "an order from the list first.";
+        }
+
         JsonNode d = riderApiClient
-            .getOrderStats(token);
-        log.info("getOrderStats raw: {}", d);
+            .getOrderDetails(orderId);
+
+        log.info("getOrderDetails raw: {}", d);
+
         if (d == null)
-            return "Unable to fetch order stats.";
+            return "Unable to fetch order details. "
+                 + "Please try again.";
 
-        JsonNode stats = d.path("stats");
-        if (stats.isMissingNode())
-            return "Unable to fetch order stats.";
+        // Response nested in "filteredOrder"
+        JsonNode order = d.path("filteredOrder");
 
-        return "Order Summary:\n"
-             + "Total Delivered: "
-             + stats.path("delivered").asText("0") + "\n"
-             + "Cancelled: "
-             + stats.path("rejected").asText("0") + "\n"
-             + "Total Notified: "
-             + stats.path("totalNotified").asText("0");
+        if (order.isMissingNode()
+                || order.isNull()) {
+            return "Order details not found "
+                 + "for order: " + orderId;
+        }
+
+        // Build response from filteredOrder fields
+        StringBuilder sb = new StringBuilder();
+        sb.append("Order Details:\n");
+
+        // Order ID
+        sb.append("Order: ")
+          .append(order.path("orderId")
+                       .asText(orderId))
+          .append("\n");
+
+        // Store name
+        if (!order.path("vendorShopName")
+                  .isMissingNode()) {
+            sb.append("Store: ")
+              .append(order.path("vendorShopName")
+                           .asText())
+              .append("\n");
+        }
+
+        // Items
+        JsonNode items = order.path("items");
+        if (!items.isMissingNode()
+                && items.isArray()
+                && items.size() > 0) {
+            sb.append("Items:\n");
+            for (JsonNode item : items) {
+                sb.append("  • ")
+                  .append(item.path("itemName")
+                              .asText("Item"))
+                  .append(" x")
+                  .append(item.path("quantity")
+                              .asText("1"))
+                  .append(" = Rs.")
+                  .append(item.path("total")
+                              .asText("0"))
+                  .append("\n");
+            }
+        }
+
+        // Pricing
+        JsonNode pricing = order.path("pricing");
+        if (!pricing.isMissingNode()) {
+            sb.append("Total: Rs.")
+              .append(pricing.path("totalAmount")
+                             .asText("0"))
+              .append("\n");
+            if (!pricing.path("riderEarnings")
+                        .isMissingNode()) {
+                sb.append("Your Earnings: Rs.")
+                  .append(pricing.path("riderEarnings")
+                                 .asText("0"))
+                  .append("\n");
+            }
+        }
+
+        // Pickup address
+        JsonNode pickup = order.path("pickupAddress");
+        if (!pickup.isMissingNode()) {
+            sb.append("Pickup: ")
+              .append(pickup.path("addressLine")
+                            .asText("N/A"))
+              .append("\n");
+        }
+
+        // Delivery address
+        JsonNode delivery = order.path("deliveryAddress");
+        if (!delivery.isMissingNode()) {
+            sb.append("Deliver to: ")
+              .append(delivery.path("name")
+                              .asText("N/A"))
+              .append(", ")
+              .append(delivery.path("addressLine")
+                              .asText("N/A"))
+              .append("\n");
+        }
+
+        return sb.toString();
     }
-
     @Override
     public String getOrderHistory(String token) {
         // Reuse getRecentOrders
         return getRecentOrders(token);
     }
 
-    // ── ONLY ONE getRecentOrders method ──────────
-	/*
-	 * @Override public String getRecentOrders(String token) { JsonNode d =
-	 * riderApiClient .getDeliveredOrders(token);
-	 * 
-	 * log.info("getRecentOrders raw response: {}", d);
-	 * 
-	 * if (d == null) return "Unable to fetch recent orders.";
-	 * 
-	 * boolean success = d.path("success") .asBoolean(false); if (!success) return
-	 * "Unable to fetch recent orders.";
-	 * 
-	 * JsonNode ordersNode = d.path("orders");
-	 * 
-	 * if (ordersNode.isMissingNode() || !ordersNode.isArray() || ordersNode.size()
-	 * == 0) return "No recent orders found.";
-	 * 
-	 * StringBuilder sb = new StringBuilder( "Recent Deliveries:\n");
-	 * 
-	 * int count = 0; for (JsonNode o : ordersNode) { if (count++ >= 5) break;
-	 * 
-	 * log.info("Order node: {}", o.toString().substring(0,
-	 * Math.min(o.toString().length(), 200)));
-	 * 
-	 * String orderId = !o.path("_id").isMissingNode() ? o.path("_id").asText() :
-	 * !o.path("orderId").isMissingNode() ? o.path("orderId").asText() :
-	 * !o.path("id").isMissingNode() ? o.path("id").asText() : "N/A";
-	 * 
-	 * String amount = !o.path("riderEarnings").isMissingNode() ?
-	 * o.path("riderEarnings").asText() : !o.path("amount").isMissingNode() ?
-	 * o.path("amount").asText() : !o.path("totalAmount").isMissingNode() ?
-	 * o.path("totalAmount").asText() : "N/A";
-	 * 
-	 * String status = !o.path("orderStatus").isMissingNode() ?
-	 * o.path("orderStatus").asText() : !o.path("status").isMissingNode() ?
-	 * o.path("status").asText() : "DELIVERED";
-	 * 
-	 * sb.append("• Order: ").append(orderId) .append(" | Rs.").append(amount)
-	 * .append(" | ").append(status) .append("\n"); }
-	 * 
-	 * return sb.toString(); }
-	 */
-    
-	/*
-	 * @Override public String getRecentOrders(String token) { JsonNode d =
-	 * riderApiClient .getDeliveredOrders(token);
-	 * 
-	 * // Log FULL response to see exact structure
-	 * log.info("getRecentOrders FULL response: {}", d != null ? d.toPrettyString()
-	 * : "NULL");
-	 * 
-	 * if (d == null) return "Unable to fetch recent orders. " +
-	 * "Node.js API returned null.";
-	 * 
-	 * // Log all top level keys log.info("Response keys: {}", d.fieldNames());
-	 * 
-	 * // Check success field log.info("success field: {}",
-	 * d.path("success").asText("MISSING"));
-	 * 
-	 * // ── Try different response structures ─────────
-	 * 
-	 * // Structure 1: { success, count, orders: [...] } if (d.has("orders") &&
-	 * d.path("orders").isArray()) { return parseOrdersArray( d.path("orders")); }
-	 * 
-	 * // Structure 2: { success, data: [...] } if (d.has("data") &&
-	 * d.path("data").isArray()) { return parseOrdersArray(d.path("data")); }
-	 * 
-	 * // Structure 3: response itself is array if (d.isArray()) { return
-	 * parseOrdersArray(d); }
-	 * 
-	 * // Structure 4: { success, result: [...] } if (d.has("result") &&
-	 * d.path("result").isArray()) { return parseOrdersArray( d.path("result")); }
-	 * 
-	 * // Structure 5: { success, deliveries: [...] } if (d.has("deliveries") &&
-	 * d.path("deliveries").isArray()) { return parseOrdersArray(
-	 * d.path("deliveries")); }
-	 * 
-	 * // Nothing matched — show raw response // so we can see what is coming
-	 * log.error("Unknown response structure: {}", d.toPrettyString());
-	 * 
-	 * return "Received response but could not parse. " + "Keys found: " +
-	 * d.fieldNames(); }
-	 * 
-	 * private String parseOrdersArray(JsonNode array) { if (array == null ||
-	 * !array.isArray() || array.size() == 0) return "No recent orders found.";
-	 * 
-	 * StringBuilder sb = new StringBuilder( "Recent Deliveries:\n");
-	 * 
-	 * int count = 0; for (JsonNode o : array) { if (count++ >= 5) break;
-	 * 
-	 * log.info("Order fields: {}", o.fieldNames().toString());
-	 * log.info("Order data: {}", o.toPrettyString().substring(0, Math.min(
-	 * o.toPrettyString().length(), 300)));
-	 * 
-	 * // Try all possible orderId fields String orderId = getFirstNonNull(o, "_id",
-	 * "orderId", "order_id", "id", "orderNumber");
-	 * 
-	 * // Try all possible amount fields String amount = getFirstNonNull(o,
-	 * "riderEarnings", "amount", "totalAmount", "total", "fare", "earnings");
-	 * 
-	 * // Try all possible status fields String status = getFirstNonNull(o,
-	 * "orderStatus", "status", "state", "deliveryStatus");
-	 * 
-	 * sb.append("• Order: ").append(orderId) .append(" | Rs.").append(amount)
-	 * .append(" | ").append(status) .append("\n"); }
-	 * 
-	 * return sb.toString(); }
-	 * 
-	 * private String getFirstNonNull( JsonNode node, String... fields) { for
-	 * (String field : fields) { if (!node.path(field).isMissingNode() &&
-	 * !node.path(field).isNull() && !node.path(field) .asText().isBlank() &&
-	 * !node.path(field) .asText().equals("null")) { return
-	 * node.path(field).asText(); } } return "N/A"; }
-	 */
-    
-    
-	/*
-	 * @Override public String getRecentOrders(String token) { JsonNode d =
-	 * riderApiClient .getDeliveredOrders(token);
-	 * 
-	 * log.info("getRecentOrders response: {}", d != null ? d.toPrettyString()
-	 * .substring(0, Math.min( d.toPrettyString() .length(), 500)) : "NULL");
-	 * 
-	 * if (d == null) return "Unable to fetch recent orders.";
-	 * 
-	 * // /api/profile/orders/history response: // { success, filter, totalOrders,
-	 * // totalRiderEarnings, orders: [...] }
-	 * 
-	 * // Try "orders" key first if (d.has("orders") && d.path("orders").isArray())
-	 * { return buildOrderList(d.path("orders")); }
-	 * 
-	 * // Try "data" key if (d.has("data") && d.path("data").isArray()) { return
-	 * buildOrderList(d.path("data")); }
-	 * 
-	 * // Try direct array if (d.isArray()) { return buildOrderList(d); }
-	 * 
-	 * // Show summary stats if no order list if (d.has("totalOrders")) { return
-	 * "Total Orders: " + d.path("totalOrders").asText("0") +
-	 * "\nTotal Earnings: Rs." + d.path("totalRiderEarnings") .asText("0"); }
-	 * 
-	 * log.warn("Unknown structure. Keys: {}", d.fieldNames()); return
-	 * "No recent orders found."; }
-	 * 
-	 * private String buildOrderList(JsonNode array) { if (array == null ||
-	 * array.size() == 0) return "No recent orders found.";
-	 * 
-	 * StringBuilder sb = new StringBuilder( "Recent Deliveries:\n");
-	 * 
-	 * int count = 0; for (JsonNode o : array) { if (count++ >= 5) break;
-	 * 
-	 * log.info("Order fields available: {}", o.fieldNames());
-	 * 
-	 * String orderId = getFirst(o, "_id", "orderId", "order_id", "id",
-	 * "orderNumber");
-	 * 
-	 * String amount = getFirst(o, "riderEarnings", "amount", "totalAmount", "fare",
-	 * "total");
-	 * 
-	 * String status = getFirst(o, "orderStatus", "status", "state",
-	 * "deliveryStatus");
-	 * 
-	 * sb.append("• ").append(orderId) .append(" | Rs.").append(amount)
-	 * .append(" | ").append(status) .append("\n"); } return sb.toString(); }
-	 * 
-	 * private String getFirst( JsonNode node, String... fields) { for (String f :
-	 * fields) { JsonNode v = node.path(f); if (!v.isMissingNode() && !v.isNull() &&
-	 * !v.asText().isBlank() && !v.asText().equals("null")) { return v.asText(); } }
-	 * return "N/A"; }
-	 */
+   
     
     @Override
     public String getRecentOrders(String token) {
@@ -372,28 +323,106 @@ public class RiderQueryServiceImpl
              + safe(d, "completionRate") + "%";
     }
 
+	/*
+	 * @Override public String getRiderProfile(String token) { JsonNode d =
+	 * riderApiClient .getRiderProfile(token); if (d == null) return
+	 * "Unable to fetch profile."; return "Profile:\n" + "Name: " + safe(d, "name")
+	 * + "\n" + "Phone: " + safe(d, "phone") + "\n" + "Status: " + safe(d,
+	 * "status"); }
+	 */
+    
     @Override
     public String getRiderProfile(String token) {
         JsonNode d = riderApiClient
             .getRiderProfile(token);
+
+        log.info("getRiderProfile raw: {}", d);
+
         if (d == null)
             return "Unable to fetch profile.";
+
+        // Unwrap nested object
+        // Node.js may return { data: {...} }
+        // or { rider: {...} } or direct fields
+        JsonNode profile = d;
+        if (d.has("data")
+                && d.path("data").isObject()) {
+            profile = d.path("data");
+        } else if (d.has("rider")
+                && d.path("rider").isObject()) {
+            profile = d.path("rider");
+        } else if (d.has("riderProfile")
+                && d.path("riderProfile").isObject()) {
+            profile = d.path("riderProfile");
+        }
+
         return "Profile:\n"
-             + "Name: "   + safe(d, "name") + "\n"
-             + "Phone: "  + safe(d, "phone") + "\n"
-             + "Status: " + safe(d, "status");
+             + "Name: "
+             + getFirst(profile,
+                 "name", "fullName",
+                 "riderName", "firstName") + "\n"
+             + "Phone: "
+             + getFirst(profile,
+                 "phone", "phoneNumber",
+                 "mobile", "contactNumber") + "\n"
+             + "Status: "
+             + getFirst(profile,
+                 "status", "accountStatus",
+                 "riderStatus", "isActive");
     }
 
+	/*
+	 * @Override public String getWalletBalance(String token) { JsonNode d =
+	 * riderApiClient.getWallet(token); if (d == null) return
+	 * "Unable to fetch wallet."; return "Wallet Balance: Rs." + safe(d, "balance")
+	 * + "\n" + "Pending: Rs." + safe(d, "pending"); }
+	 */
+    
     @Override
     public String getWalletBalance(String token) {
         JsonNode d = riderApiClient.getWallet(token);
+
+        log.info("getWallet raw: {}", d);
+
         if (d == null)
             return "Unable to fetch wallet.";
+
+        // Unwrap nested object
+        JsonNode wallet = d;
+        if (d.has("data")
+                && d.path("data").isObject()) {
+            wallet = d.path("data");
+        } else if (d.has("wallet")
+                && d.path("wallet").isObject()) {
+            wallet = d.path("wallet");
+        }
+
         return "Wallet Balance: Rs."
-             + safe(d, "balance") + "\n"
+             + getFirst(wallet,
+                 "balance", "walletBalance",
+                 "amount", "currentBalance",
+                 "availableBalance") + "\n"
              + "Pending: Rs."
-             + safe(d, "pending");
+             + getFirst(wallet,
+                 "pending", "pendingAmount",
+                 "pendingBalance", "holdAmount");
     }
+    
+    private String getFirst(
+            JsonNode node, String... fields) {
+        for (String f : fields) {
+            JsonNode v = node.path(f);
+            if (!v.isMissingNode()
+                    && !v.isNull()
+                    && !v.asText().isBlank()
+                    && !v.asText().equals("null")) {
+                return v.asText();
+            }
+        }
+        return "N/A";
+    }
+
+   
 
     private String safe(JsonNode node, String key) {
         return node.path(key).asText("N/A");

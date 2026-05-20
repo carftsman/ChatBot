@@ -23,46 +23,7 @@ public class RiderApiClient {
     private final ObjectMapper objectMapper =
         new ObjectMapper();
 
-    // ── AUTH ──────────────────────────────────────
-
-	/*
-	 * public Map sendOtp(String phone) { try { HttpEntity<Map> entity = new
-	 * HttpEntity<>( Map.of("phone", phone), jsonHeaders(null));
-	 * ResponseEntity<String> res = restTemplate.exchange( baseUrl +
-	 * "/api/auth/send-otp", HttpMethod.POST, entity, String.class); return
-	 * objectMapper.readValue( res.getBody(), Map.class); } catch (Exception e) {
-	 * log.error("sendOtp error: {}", e.getMessage()); return Map.of("message",
-	 * "OTP sent successfully"); } }
-	 */
-	/*
-	 * public Map verifyOtp( String phone, String otp) { try { HttpEntity<Map>
-	 * entity = new HttpEntity<>( Map.of("phone", phone, "otp", otp),
-	 * jsonHeaders(null)); ResponseEntity<String> res = restTemplate.exchange(
-	 * baseUrl + "/api/auth/verify-otp", HttpMethod.POST, entity, String.class);
-	 * return objectMapper.readValue( res.getBody(), Map.class); } catch (Exception
-	 * e) { log.error("verifyOtp error: {}", e.getMessage()); return null; } }
-	 */ 
-    
-	/*
-	 * public Map verifyOtp(String phone, String otp) { try { Map<String, String>
-	 * body = new java.util.HashMap<>(); body.put("phone", phone); body.put("otp",
-	 * otp);
-	 * 
-	 * HttpEntity<Map> entity = new HttpEntity<>(body, jsonHeaders(null));
-	 * 
-	 * log.info("Calling verifyOtp → phone: {}", phone);
-	 * 
-	 * ResponseEntity<String> res = restTemplate.exchange( baseUrl +
-	 * "/api/auth/verify-otp", HttpMethod.POST, entity, String.class);
-	 * 
-	 * log.info("verifyOtp status: {}", res.getStatusCode());
-	 * log.info("verifyOtp body: {}", res.getBody());
-	 * 
-	 * return objectMapper.readValue( res.getBody(), Map.class);
-	 * 
-	 * } catch (Exception e) { log.error("verifyOtp failed: {} | body: {}",
-	 * e.getMessage(), e); return null; } }
-	 */
+   
     
     public Map sendOtp(String phone) {
         try {
@@ -142,10 +103,10 @@ public class RiderApiClient {
 
     // ── ORDERS ────────────────────────────────────
 
-    public JsonNode getOrderStats(String token) {
-        return get("/api/orders/stats", token);
-    }
-
+	/*
+	 * public JsonNode getOrderStats(String token) { return get("/api/orders/stats",
+	 * token); }
+	 */
 	/*
 	 * public JsonNode getOrderHistory(String token) { return
 	 * get("/api/profile/orders/history", token); }
@@ -185,23 +146,84 @@ public class RiderApiClient {
 	 * e.getMessage()); log.error("Full error: ", e); return null; } }
 	 */
     
+	/*
+	 * public JsonNode getDeliveredOrders(String token) { // /api/orders/delivered
+	 * returns 404 on Node.js // Use /api/profile/orders/history instead // which is
+	 * confirmed working return get( "/api/profile/orders/history?filter=all",
+	 * token); }
+	 * 
+	 * // Keep this but fix the path public JsonNode getOrderHistory(String token) {
+	 * return get("/api/orders/delivered", token); }
+	 * 
+	 * public JsonNode getCancelledOrders( String token) { return
+	 * get("/api/orders/cancelled", token); }
+	 */
+    
+ // ── ORDERS ────────────────────────────────────
+
+	/*
+	 * public JsonNode getOrderStats(String token) { return get("/api/orders/stats",
+	 * token); }
+	 */
+    
+ // ── ORDERS ────────────────────────────────────
+
+ // Get specific order details by orderId
+ // GET /api/orders/{orderId}/details
+ // No auth required (Security: [])
+ public JsonNode getOrderDetails(String orderId) {
+     try {
+         // No token needed — security is empty
+         HttpEntity<String> entity =
+             new HttpEntity<>(jsonHeaders(null));
+
+         String url = baseUrl
+             + "/api/orders/"
+             + orderId
+             + "/details";
+
+         log.info("Calling order details: {}", url);
+
+         ResponseEntity<String> res =
+             restTemplate.exchange(
+                 url,
+                 HttpMethod.GET,
+                 entity,
+                 String.class);
+
+         log.info("Order details status: {}",
+                  res.getStatusCode());
+         log.info("Order details body: {}",
+                  res.getBody() != null
+                      ? res.getBody().substring(0,
+                          Math.min(res.getBody()
+                                      .length(), 300))
+                      : "NULL");
+
+         if (res.getStatusCode().is2xxSuccessful()
+                 && res.getBody() != null) {
+             return objectMapper.readTree(
+                 res.getBody());
+         }
+     } catch (Exception e) {
+         log.error("getOrderDetails failed: {}",
+                   e.getMessage());
+     }
+     return null;
+ }
+
+    // ORDER HISTORY — confirmed working
     public JsonNode getDeliveredOrders(String token) {
-        // /api/orders/delivered returns 404 on Node.js
-        // Use /api/profile/orders/history instead
-        // which is confirmed working
         return get(
             "/api/profile/orders/history?filter=all",
             token);
     }
 
-    // Keep this but fix the path
+    // Fix getOrderHistory — same as getDeliveredOrders
     public JsonNode getOrderHistory(String token) {
-        return get("/api/orders/delivered", token);
-    }
-
-    public JsonNode getCancelledOrders(
-            String token) {
-        return get("/api/orders/cancelled", token);
+        return get(
+            "/api/profile/orders/history?filter=all",
+            token);
     }
 
     // ── EARNINGS ──────────────────────────────────

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 public interface RiderChatService {
-    ChatStartResponse    startSession(String riderId, String riderToken);
+    ChatStartResponse    startSession(String riderId, String riderToken,String orderId);
     SessionStatusResponse resolveOrEscalate(UUID sessionId, boolean resolved, String riderId);
     WebSocketChatResponse processMessage(WebSocketChatRequest request);
     SessionStatusResponse endSession(UUID sessionId);

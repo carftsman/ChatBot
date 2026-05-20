@@ -1,13 +1,3 @@
-/*
- * package com.dhatvibs.modules.rider.dto;
- * 
- * 
- * import lombok.*;
- * 
- * @Data @NoArgsConstructor @AllArgsConstructor @Builder public class
- * ChatStartRequest { // rider JWT from verify-otp response private String
- * riderToken; }
- */
 
 package com.dhatvibs.modules.rider.dto;
 

@@ -13,10 +13,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;          // ← ADD THIS
+
 
 import java.util.List;
 import java.util.UUID;
 
+
+@Slf4j
 @RestController
 @RequestMapping("/rider/api/chat")
 @RequiredArgsConstructor
@@ -35,18 +39,41 @@ public class RiderChatController {
             .getPrincipal();
     }
 
-    @Operation(summary = "1. Start chat session",
-        description = "Creates session. Pass riderToken from login.")
+	/*
+	 * @Operation(summary = "1. Start chat session", description =
+	 * "Creates session. Pass riderToken from login.")
+	 * 
+	 * @PostMapping("/start") public ResponseEntity<ChatStartResponse> startSession(
+	 * 
+	 * @RequestBody(required = false) ChatStartRequest request) { String token =
+	 * request != null ? request.getRiderToken() : null; return ResponseEntity.ok(
+	 * chatService.startSession( getRiderId(), token)); }
+	 */
+    
     @PostMapping("/start")
     public ResponseEntity<ChatStartResponse>
             startSession(
             @RequestBody(required = false)
             ChatStartRequest request) {
-        String token = request != null
-            ? request.getRiderToken() : null;
+
+        log.info("=== /rider/chat/start called ===");
+        log.info("Request body: {}", request);
+
+        String token = null;
+        String orderId = null;
+
+        if (request != null) {
+            token   = request.getRiderToken();
+            orderId = request.getOrderId();
+        }
+
+        log.info("Extracted → token: {} | orderId: {}",
+                 token != null ? "present" : "NULL",
+                 orderId);
+
         return ResponseEntity.ok(
             chatService.startSession(
-                getRiderId(), token));
+                getRiderId(), token, orderId));
     }
 
     @Operation(summary = "2. Resolve or Escalate",

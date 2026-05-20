@@ -29,30 +29,107 @@ public class RiderChatServiceImpl
     private final RiderLLMService            llmService;
     private final SimpMessagingTemplate      messaging;
 
+	/*
+	 * @Override public ChatStartResponse startSession( String riderId, String
+	 * riderToken) {
+	 * 
+	 * RiderChatSession session = RiderChatSession.builder() .riderId(riderId)
+	 * .riderToken(riderToken) .status("OPEN") .chatEnabled(false)
+	 * .startedAt(LocalDateTime.now()) .build();
+	 * 
+	 * session = sessionRepo.save(session);
+	 * 
+	 * String welcome = "Hi! I am your support assistant.\n" +
+	 * "Please select a category below.";
+	 * 
+	 * saveMessage(session.getId(), "SYSTEM", welcome, null, null, "SYSTEM");
+	 * 
+	 * log.info("Rider session started: {}", session.getId());
+	 * 
+	 * return ChatStartResponse.builder() .sessionId(session.getId())
+	 * .status("OPEN") .welcomeMessage(welcome) .chatEnabled(false)
+	 * .startedAt(session.getStartedAt()) .build(); }
+	 */
+
+	/*
+	 * @Override public SessionStatusResponse resolveOrEscalate( UUID sessionId,
+	 * boolean resolved, String riderId) {
+	 * 
+	 * RiderChatSession session = sessionRepo.findById(sessionId) .orElseThrow(() ->
+	 * new ResponseStatusException( HttpStatus.NOT_FOUND, "Session not found"));
+	 * 
+	 * if (resolved) { session.setStatus("RESOLVED");
+	 * session.setResolutionType("RESOLVED"); session.setChatEnabled(false);
+	 * session.setEndedAt(LocalDateTime.now()); sessionRepo.save(session);
+	 * 
+	 * saveMessage(sessionId, "SYSTEM", "Issue resolved. Thank you!", null, null,
+	 * "SYSTEM");
+	 * 
+	 * broadcast(sessionId, "Session closed. Thank you!", "SYSTEM", "RESOLVED");
+	 * 
+	 * return SessionStatusResponse.builder() .sessionId(sessionId)
+	 * .status("RESOLVED") .chatEnabled(false) .resolutionType("RESOLVED")
+	 * .message("Issue resolved.") .timestamp(LocalDateTime.now()) .build();
+	 * 
+	 * } else { session.setChatEnabled(true);
+	 * session.setResolutionType("ESCALATED"); sessionRepo.save(session);
+	 * 
+	 * String msg = "Free chat enabled. " + "Please describe your issue.";
+	 * saveMessage(sessionId, "SYSTEM", msg, null, null, "SYSTEM");
+	 * broadcast(sessionId, msg, "SYSTEM", "ESCALATED");
+	 * 
+	 * return SessionStatusResponse.builder() .sessionId(sessionId) .status("OPEN")
+	 * .chatEnabled(true) .resolutionType("ESCALATED")
+	 * .message("Free chat enabled.") .timestamp(LocalDateTime.now()) .build(); } }
+	 */
+    
+    
     @Override
     public ChatStartResponse startSession(
-            String riderId, String riderToken) {
+            String riderId,
+            String riderToken,
+            String orderId) {
+
+        log.info("=== startSession called ===");
+        log.info("riderId:    {}", riderId);
+        log.info("orderId:    {}", orderId);
+        log.info("riderToken: {}",
+                 riderToken != null
+                     ? riderToken.substring(0,
+                         Math.min(20,
+                             riderToken.length()))
+                     : "NULL");
 
         RiderChatSession session =
             RiderChatSession.builder()
                 .riderId(riderId)
                 .riderToken(riderToken)
+                .contextOrderId(orderId)
                 .status("OPEN")
                 .chatEnabled(false)
                 .startedAt(LocalDateTime.now())
                 .build();
 
+        log.info("Before save → contextOrderId: {}",
+                 session.getContextOrderId());
+
         session = sessionRepo.save(session);
 
-        String welcome =
-            "Hi! I am your support assistant.\n"
-          + "Please select a category below.";
+        log.info("After save → sessionId: {} | "
+               + "contextOrderId: {}",
+                 session.getId(),
+                 session.getContextOrderId());
+
+        String welcome = (orderId != null
+                && !orderId.isBlank())
+            ? "Hi! I can see you selected order "
+              + orderId + ".\n"
+              + "Please select a category below."
+            : "Hi! I am your support assistant.\n"
+              + "Please select a category below.";
 
         saveMessage(session.getId(), "SYSTEM",
             welcome, null, null, "SYSTEM");
-
-        log.info("Rider session started: {}",
-                 session.getId());
 
         return ChatStartResponse.builder()
             .sessionId(session.getId())
@@ -62,7 +139,7 @@ public class RiderChatServiceImpl
             .startedAt(session.getStartedAt())
             .build();
     }
-
+    
     @Override
     public SessionStatusResponse resolveOrEscalate(
             UUID sessionId,
@@ -77,6 +154,7 @@ public class RiderChatServiceImpl
                         "Session not found"));
 
         if (resolved) {
+            //  Issue Resolved — close session
             session.setStatus("RESOLVED");
             session.setResolutionType("RESOLVED");
             session.setChatEnabled(false);
@@ -101,14 +179,40 @@ public class RiderChatServiceImpl
                 .build();
 
         } else {
+            //  Issue Not Resolved
+            // Enable chat AND raise ticket immediately
             session.setChatEnabled(true);
             session.setResolutionType("ESCALATED");
             sessionRepo.save(session);
 
-            String msg = "Free chat enabled. "
+            // ── Raise ticket immediately ──────────────
+            RiderTicket ticket = RiderTicket.builder()
+                .sessionId(sessionId)
+                .riderId(session.getRiderId())
+                .category("SUPPORT")
+                .description(
+                    "Rider clicked Issue Not Resolved. "
+                  + "Free chat enabled for follow up.")
+                .status("OPEN")
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+            RiderTicket saved = ticketRepo.save(ticket);
+
+            log.info("Ticket raised on escalation: {}",
+                     saved.getId());
+
+            String msg = "Free chat is now enabled.\n"
+                + "Support ticket #"
+                + saved.getId().toString()
+                       .substring(0, 8).toUpperCase()
+                + " has been created.\n"
                 + "Please describe your issue.";
+
             saveMessage(sessionId, "SYSTEM",
                 msg, null, null, "SYSTEM");
+
             broadcast(sessionId, msg,
                 "SYSTEM", "ESCALATED");
 
@@ -117,7 +221,8 @@ public class RiderChatServiceImpl
                 .status("OPEN")
                 .chatEnabled(true)
                 .resolutionType("ESCALATED")
-                .message("Free chat enabled.")
+                .message("Free chat enabled. "
+                       + "Ticket raised.")
                 .timestamp(LocalDateTime.now())
                 .build();
         }

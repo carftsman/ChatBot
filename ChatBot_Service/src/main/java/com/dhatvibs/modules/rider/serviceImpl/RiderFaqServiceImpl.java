@@ -98,8 +98,12 @@ public class RiderFaqServiceImpl
         } else if (Boolean.TRUE.equals(
                 faq.getNeedsApi())) {
             // Call Node.js API
-            answer = resolveFromApi(
-                faq.getIntent(), riderToken);
+			/*
+			 * answer = resolveFromApi( faq.getIntent(), riderToken);
+			 */
+        	
+        	answer = resolveFromApi(
+        		    faq.getIntent(), riderToken, sessionId);
         } else {
             // Static answer from DB
             answer = faq.getAnswer();
@@ -144,53 +148,134 @@ public class RiderFaqServiceImpl
 	 * "I am checking this for you."; }; }
 	 */
     
+	/*
+	 * private String resolveFromApi( String intent, String token) {
+	 * 
+	 * if (token == null) return "Session expired. Please login again.";
+	 * 
+	 * log.info("Resolving intent: {}", intent);
+	 * 
+	 * return switch (intent) {
+	 * 
+	 * // EARNINGS case "earnings_today" -> queryService.getDailyEarnings(token);
+	 * case "earnings_weekly" -> queryService.getWeeklyEarnings(token); case
+	 * "earnings_summary" -> queryService.getEarningsSummary(token); case
+	 * "cash_balance" -> queryService.getCashBalance(token); case "wallet_balance"
+	 * -> queryService.getWalletBalance(token);
+	 * 
+	 * // ORDERS case "order_stats", "current_order" ->
+	 * queryService.getOrderStats(token); case "order_history" ->
+	 * queryService.getOrderHistory(token);
+	 * 
+	 * // RATINGS case "ratings" -> queryService.getRatings(token); case
+	 * "weekly_performance" -> queryService.getWeeklyPerformance(token);
+	 * 
+	 * // ACCOUNT case "rider_profile" -> queryService.getRiderProfile(token);
+	 * 
+	 * default -> { log.warn("Unmatched intent: {}", intent); yield
+	 * "I am checking this for you. " + "Please hold on."; } }; }
+	 */ 
+    
+	/*
+	 * private String resolveFromApi( String intent, String token) {
+	 * 
+	 * if (token == null) return "Session expired. Please login again.";
+	 * 
+	 * log.info("Resolving intent: {}", intent);
+	 * 
+	 * return switch (intent) {
+	 * 
+	 * // ORDER category questions case "order_history" ->
+	 * queryService.getRecentOrders(token);
+	 * 
+	 * case "order_stats", "current_order" -> queryService.getOrderStats(token);
+	 * 
+	 * // ACCOUNT category questions case "rider_profile" ->
+	 * queryService.getRiderProfile(token);
+	 * 
+	 * case "wallet_balance" -> queryService.getWalletBalance(token);
+	 * 
+	 * // These are static — handled before reaching here case "login_issue",
+	 * "app_issue", "talk_to_agent" -> queryService.getRiderProfile(token);
+	 * 
+	 * default -> { log.warn("Unmatched intent: {}", intent); yield
+	 * "I am checking this for you. " + "Please hold on."; } }; }
+	 */    
+	/*
+	 * private String resolveFromApi( String intent, String token) {
+	 * 
+	 * if (token == null) return "Session expired. Please login again.";
+	 * 
+	 * log.info("Resolving intent: {}", intent);
+	 * 
+	 * return switch (intent) {
+	 * 
+	 * // ORDER category — Question 2 // Uses contextOrderId from session case
+	 * "order_stats", "current_order", "order_status" -> { // Get orderId from
+	 * session context String orderId = getContextOrderId( sessionId); if (orderId
+	 * == null || orderId.isBlank()) { yield "No order selected. " +
+	 * "Please go back and " + "tap an order first."; } yield queryService
+	 * .getOrderDetails(orderId); }
+	 * 
+	 * // ORDER category — Question 1 case "order_history" ->
+	 * queryService.getRecentOrders(token);
+	 * 
+	 * // ACCOUNT category case "rider_profile" ->
+	 * queryService.getRiderProfile(token);
+	 * 
+	 * case "wallet_balance" -> queryService.getWalletBalance(token);
+	 * 
+	 * default -> { log.warn("Unmatched intent: {}", intent); yield
+	 * "I am checking this for you."; } }; }
+	 */
+    
+ // Update resolveFromApi signature
     private String resolveFromApi(
-            String intent, String token) {
+            String intent,
+            String token,
+            UUID sessionId) {  // ← add sessionId
 
         if (token == null)
-            return "Session expired. Please login again.";
-
-        log.info("Resolving intent: {}", intent);
+            return "Session expired.";
 
         return switch (intent) {
 
-            // EARNINGS
-            case "earnings_today"     ->
-                queryService.getDailyEarnings(token);
-            case "earnings_weekly"    ->
-                queryService.getWeeklyEarnings(token);
-            case "earnings_summary"   ->
-                queryService.getEarningsSummary(token);
-            case "cash_balance"       ->
-                queryService.getCashBalance(token);
-            case "wallet_balance"     ->
-                queryService.getWalletBalance(token);
-
-            // ORDERS
             case "order_stats",
-                 "current_order"      ->
-                queryService.getOrderStats(token);
-            case "order_history"      ->
-                queryService.getOrderHistory(token);
+                 "current_order",
+                 "order_status" -> {
+                // Get contextOrderId from session
+                String orderId = sessionId != null
+                    ? sessionRepo.findById(sessionId)
+                        .map(RiderChatSession
+                            ::getContextOrderId)
+                        .orElse(null)
+                    : null;
 
-            // RATINGS
-            case "ratings"            ->
-                queryService.getRatings(token);
-            case "weekly_performance" ->
-                queryService.getWeeklyPerformance(token);
+                if (orderId == null
+                        || orderId.isBlank()) {
+                    yield "No order selected. "
+                        + "Please go back and "
+                        + "tap an order first.";
+                }
+                // Call Node.js with orderId
+                // No token needed for this endpoint
+                yield queryService
+                    .getOrderDetails(orderId);
+            }
 
-            // ACCOUNT
-            case "rider_profile"      ->
+            case "order_history" ->
+                queryService.getRecentOrders(token);
+
+            case "rider_profile" ->
                 queryService.getRiderProfile(token);
 
-            default -> {
-                log.warn("Unmatched intent: {}", intent);
-                yield "I am checking this for you. "
-                    + "Please hold on.";
-            }
+            case "wallet_balance" ->
+                queryService.getWalletBalance(token);
+
+            default ->
+                "I am checking this for you.";
         };
     }
-    
     
     private boolean isSupportIntent(String intent) {
         return switch (intent) {

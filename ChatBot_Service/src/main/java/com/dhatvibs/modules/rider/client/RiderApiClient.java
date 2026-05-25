@@ -101,70 +101,9 @@ public class RiderApiClient {
         return get("/api/profile/documents", token);
     }
 
-    // ── ORDERS ────────────────────────────────────
+    
+    
 
-	/*
-	 * public JsonNode getOrderStats(String token) { return get("/api/orders/stats",
-	 * token); }
-	 */
-	/*
-	 * public JsonNode getOrderHistory(String token) { return
-	 * get("/api/profile/orders/history", token); }
-	 * 
-	 * public JsonNode getDeliveredOrders( String token) { return
-	 * get("/api/orders/delivered", token); }
-	 */
-    
- // Change getOrderHistory to use delivered orders endpoint
-	/*
-	 * public JsonNode getDeliveredOrders(String token) { return
-	 * get("/api/orders/delivered", token); }
-	 */
-    
-	/*
-	 * public JsonNode getDeliveredOrders(String token) { try { HttpEntity<String>
-	 * entity = new HttpEntity<>(jsonHeaders(token));
-	 * 
-	 * log.info("Calling delivered orders API...");
-	 * log.info("URL: {}/api/orders/delivered", baseUrl);
-	 * log.info("Token (first 20 chars): {}", token.substring(0,
-	 * Math.min(token.length(), 20)));
-	 * 
-	 * ResponseEntity<String> res = restTemplate.exchange( baseUrl +
-	 * "/api/orders/delivered", HttpMethod.GET, entity, String.class);
-	 * 
-	 * log.info("Status: {}", res.getStatusCode()); log.info("Body: {}",
-	 * res.getBody() != null ? res.getBody().substring(0,
-	 * Math.min(res.getBody().length(), 500)) : "NULL BODY");
-	 * 
-	 * if (res.getStatusCode().is2xxSuccessful() && res.getBody() != null) { return
-	 * objectMapper.readTree( res.getBody()); }
-	 * 
-	 * log.error("Non-2xx status: {}", res.getStatusCode()); return null;
-	 * 
-	 * } catch (Exception e) { log.error("getDeliveredOrders FAILED: {}",
-	 * e.getMessage()); log.error("Full error: ", e); return null; } }
-	 */
-    
-	/*
-	 * public JsonNode getDeliveredOrders(String token) { // /api/orders/delivered
-	 * returns 404 on Node.js // Use /api/profile/orders/history instead // which is
-	 * confirmed working return get( "/api/profile/orders/history?filter=all",
-	 * token); }
-	 * 
-	 * // Keep this but fix the path public JsonNode getOrderHistory(String token) {
-	 * return get("/api/orders/delivered", token); }
-	 * 
-	 * public JsonNode getCancelledOrders( String token) { return
-	 * get("/api/orders/cancelled", token); }
-	 */
-    
- // ── ORDERS ────────────────────────────────────
-
-	/*
-	 * public JsonNode getOrderStats(String token) { return get("/api/orders/stats",
-	 * token); }
-	 */
     
  // ── ORDERS ────────────────────────────────────
 
@@ -299,8 +238,6 @@ public class RiderApiClient {
     }
     
     
-   
-
     private HttpHeaders jsonHeaders(String token) {
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_JSON);

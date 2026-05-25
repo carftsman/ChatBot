@@ -1,51 +1,5 @@
 package com.dhatvibs.modules.config.auth;
-
-/*
- * import jakarta.servlet.FilterChain; import jakarta.servlet.ServletException;
- * import jakarta.servlet.http.HttpServletRequest; import
- * jakarta.servlet.http.HttpServletResponse; import
- * org.springframework.security.authentication.
- * UsernamePasswordAuthenticationToken; import
- * org.springframework.security.core.authority.SimpleGrantedAuthority; import
- * org.springframework.security.core.context.SecurityContextHolder; import
- * org.springframework.stereotype.Component; import
- * org.springframework.web.filter.OncePerRequestFilter;
- * 
- * import java.io.IOException; import java.util.List;
- * 
- * @Component public class HeaderAuthFilter extends OncePerRequestFilter {
- * 
- * @Override protected void doFilterInternal( HttpServletRequest request,
- * HttpServletResponse response, FilterChain filterChain) throws
- * ServletException, IOException {
- * 
- * String path = request.getRequestURI();
- * 
- * // Skip filter for public endpoints if (path.startsWith("/auth/") ||
- * path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") ||
- * path.startsWith("/webjars")) { filterChain.doFilter(request, response);
- * return; }
- * 
- * // Read headers injected by API Gateway String userId =
- * request.getHeader("X-User-Id"); String appId = request.getHeader("X-App-Id");
- * 
- * if (userId == null || userId.isBlank() || appId == null || appId.isBlank()) {
- * // Headers missing — reject with 403 response.setStatus(
- * HttpServletResponse.SC_FORBIDDEN); response.getWriter().write(
- * "Missing X-User-Id or X-App-Id header"); return; }
- * 
- * // Set authentication in Spring Security context // principal = userId (e.g.
- * USR_001) // credentials = appId (e.g. USER) // authorities = role based on
- * appId UsernamePasswordAuthenticationToken authentication = new
- * UsernamePasswordAuthenticationToken( userId, // principal appId, //
- * credentials List.of(new SimpleGrantedAuthority( "ROLE_" + appId)) // e.g.
- * ROLE_USER );
- * 
- * SecurityContextHolder.getContext() .setAuthentication(authentication);
- * 
- * filterChain.doFilter(request, response); } }
- */  
-
+  
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -83,6 +37,8 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
         // Skip filter for public endpoints
         if (path.startsWith("/auth/")
         		|| path.startsWith("/rider/") 
+        		|| path.startsWith("/consumer/")
+        		|| path.startsWith("/vendor/")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/webjars")) {

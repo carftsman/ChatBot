@@ -1,145 +1,109 @@
-package com.dhatvibs.modules.config.auth;
-
 /*
- * import org.springframework.context.annotation.Bean; import
+ * package com.dhatvibs.modules.config.auth;
+ * 
+ * import com.dhatvibs.modules.consumer.filter.ConsumerAuthFilter; import
+ * com.dhatvibs.modules.rider.filter.RiderAuthFilter; import
+ * lombok.RequiredArgsConstructor; import
+ * org.springframework.context.annotation.Bean; import
  * org.springframework.context.annotation.Configuration; import
+ * org.springframework.core.annotation.Order; import
  * org.springframework.security.config.annotation .web.builders.HttpSecurity;
  * import org.springframework.security.config.annotation
  * .web.configuration.EnableWebSecurity; import
  * org.springframework.security.config.http .SessionCreationPolicy; import
  * org.springframework.security.crypto.bcrypt .BCryptPasswordEncoder; import
  * org.springframework.security.crypto.password .PasswordEncoder; import
- * org.springframework.security.web.SecurityFilterChain;
- * 
- * @Configuration
- * 
- * @EnableWebSecurity public class SecurityConfig {
- * 
- * @Bean public PasswordEncoder passwordEncoder() { return new
- * BCryptPasswordEncoder(10); }
- * 
- * 
- * @Bean public SecurityFilterChain filterChain(HttpSecurity http) throws
- * Exception { return http .csrf(csrf -> csrf.disable())
- * .sessionManagement(session -> session .sessionCreationPolicy(
- * SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(auth -> auth //
- * Public endpoints .requestMatchers( "/auth/login", "/auth/logout", // Swagger
- * UI URLs "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**",
- * "/v3/api-docs" ).permitAll() .anyRequest().authenticated()) .build(); }
- * 
- * @Bean public SecurityFilterChain filterChain(HttpSecurity http) throws
- * Exception { return http .csrf(csrf -> csrf.disable())
- * .sessionManagement(session -> session
- * .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
- * .authorizeHttpRequests(auth -> auth .requestMatchers( "/auth/login",
- * "/auth/logout", "/api/chat/**", "/v3/api-docs", "/v3/api-docs/**",
- * "/v3/api-docs.yaml", "/swagger-ui/**", "/swagger-ui/index.html",
- * "/swagger-ui.html", "/webjars/**" ).permitAll()
- * .anyRequest().authenticated()) .build(); }
- * 
- * }
- */ 
-
-/*
- * import org.springframework.context.annotation.Bean; import
- * org.springframework.context.annotation.Configuration; import
- * org.springframework.security.config.annotation.web.builders.HttpSecurity;
- * import org.springframework.security.config.annotation.web.configuration.
- * EnableWebSecurity; import
- * org.springframework.security.config.http.SessionCreationPolicy; import
- * org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; import
- * org.springframework.security.crypto.password.PasswordEncoder; import
- * org.springframework.security.web.SecurityFilterChain; import
- * org.springframework.security.web.authentication.
- * UsernamePasswordAuthenticationFilter;
- * 
- * @Configuration
- * 
- * @EnableWebSecurity public class SecurityConfig {
- * 
- * private final HeaderAuthFilter headerAuthFilter;
- * 
- * public SecurityConfig(HeaderAuthFilter headerAuthFilter) {
- * this.headerAuthFilter = headerAuthFilter; }
- * 
- * @Bean public PasswordEncoder passwordEncoder() { return new
- * BCryptPasswordEncoder(10); }
- * 
- * @Bean public SecurityFilterChain filterChain(HttpSecurity http) throws
- * Exception { return http .csrf(csrf -> csrf.disable())
- * .sessionManagement(session -> session .sessionCreationPolicy(
- * SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(auth -> auth //
- * Public endpoints — no token needed .requestMatchers( "/auth/login",
- * "/auth/logout", "/swagger-ui/**", "/swagger-ui/index.html",
- * "/swagger-ui.html", "/v3/api-docs/**", "/v3/api-docs", "/webjars/**"
- * ).permitAll() // All /api/** endpoints — validated by HeaderAuthFilter
- * .anyRequest().authenticated() ) // Add header filter BEFORE Spring Security's
- * default filter // This reads X-User-Id and X-App-Id injected by gateway
- * .addFilterBefore( headerAuthFilter,
- * UsernamePasswordAuthenticationFilter.class) .build(); } }
- */  
-
-
-/*
- * import org.springframework.context.annotation.Bean; import
- * org.springframework.context.annotation.Configuration; import
- * org.springframework.security.config.annotation.web.builders.HttpSecurity;
- * import org.springframework.security.config.annotation.web.configuration.
- * EnableWebSecurity; import
- * org.springframework.security.config.http.SessionCreationPolicy; import
- * org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder; import
- * org.springframework.security.crypto.password.PasswordEncoder; import
- * org.springframework.security.web.SecurityFilterChain; import
- * org.springframework.security.web.authentication.
- * UsernamePasswordAuthenticationFilter; import
+ * org.springframework.security.web .SecurityFilterChain; import
+ * org.springframework.security.web.authentication
+ * .UsernamePasswordAuthenticationFilter; import
  * org.springframework.web.cors.CorsConfiguration; import
- * org.springframework.web.cors.CorsConfigurationSource; import
- * org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+ * org.springframework.web.cors .CorsConfigurationSource; import
+ * org.springframework.web.cors .UrlBasedCorsConfigurationSource;
  * 
  * import java.util.List;
  * 
  * @Configuration
  * 
- * @EnableWebSecurity public class SecurityConfig {
+ * @EnableWebSecurity
  * 
- * private final HeaderAuthFilter headerAuthFilter;
+ * @RequiredArgsConstructor public class SecurityConfig {
  * 
- * public SecurityConfig(HeaderAuthFilter headerAuthFilter) {
- * this.headerAuthFilter = headerAuthFilter; }
+ * private final ConsumerAuthFilter consumerAuthFilter;
+ * 
+ * private final HeaderAuthFilter headerAuthFilter; private final
+ * RiderAuthFilter riderAuthFilter;
+ * 
+ * 
  * 
  * @Bean public PasswordEncoder passwordEncoder() { return new
  * BCryptPasswordEncoder(10); }
  * 
  * @Bean public CorsConfigurationSource corsConfigurationSource() {
  * CorsConfiguration config = new CorsConfiguration();
- * 
- * // Allow all origins — change to specific // frontend URL in production
  * config.setAllowedOriginPatterns(List.of("*")); config.setAllowedMethods(
  * List.of("GET","POST","PUT", "DELETE","OPTIONS"));
  * config.setAllowedHeaders(List.of("*")); config.setAllowCredentials(true);
- * config.setExposedHeaders( List.of("Authorization", "X-User-Id","X-App-Id"));
- * 
  * UrlBasedCorsConfigurationSource source = new
- * UrlBasedCorsConfigurationSource(); // Apply CORS to all endpoints
- * source.registerCorsConfiguration("/**", config); return source; }
+ * UrlBasedCorsConfigurationSource(); source.registerCorsConfiguration( "/**",
+ * config); return source; }
  * 
- * @Bean public SecurityFilterChain filterChain( HttpSecurity http) throws
- * Exception { return http // Enable CORS with our config .cors(cors -> cors
- * .configurationSource( corsConfigurationSource())) .csrf(csrf ->
- * csrf.disable()) .sessionManagement(session -> session .sessionCreationPolicy(
+ * // ── Chain 1 — Rider paths (order=1, runs first)
+ * 
+ * @Bean
+ * 
+ * @Order(1) public SecurityFilterChain riderFilterChain( HttpSecurity http)
+ * throws Exception {
+ * 
+ * return http // Apply only to rider paths .securityMatcher( "/rider/**")
+ * .cors(c -> c.configurationSource( corsConfigurationSource())) .csrf(c ->
+ * c.disable()) .sessionManagement(s -> s .sessionCreationPolicy(
+ * SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(auth -> auth //
+ * these rider paths are public .requestMatchers( "/rider/auth/**", // public
+ * "/rider/admin/**", // public "/ws/rider/**" ).permitAll()
+ * .anyRequest().authenticated()) .addFilterBefore( riderAuthFilter,
+ * UsernamePasswordAuthenticationFilter .class) .build(); }
+ * 
+ * // ── Chain 2 — All other paths (order=2, runs second)
+ * 
+ * @Bean
+ * 
+ * @Order(2) public SecurityFilterChain filterChain( HttpSecurity http) throws
+ * Exception {
+ * 
+ * return http .cors(c -> c.configurationSource( corsConfigurationSource()))
+ * .csrf(c -> c.disable()) .sessionManagement(s -> s .sessionCreationPolicy(
  * SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(auth -> auth
- * .requestMatchers( "/auth/login", "/auth/logout", "/ws/chat/**",
- * "/swagger-ui/**", "/swagger-ui/index.html", "/swagger-ui.html",
- * "/v3/api-docs/**", "/v3/api-docs", "/webjars/**" ).permitAll()
+ * .requestMatchers( "/auth/login", "/auth/logout", "/swagger-ui/**",
+ * "/swagger-ui/index.html", "/swagger-ui.html", "/v3/api-docs/**",
+ * "/v3/api-docs", "/webjars/**", "/ws/chat/**" ).permitAll()
  * .anyRequest().authenticated()) .addFilterBefore( headerAuthFilter,
- * UsernamePasswordAuthenticationFilter.class) .build(); } }
- */ 
+ * UsernamePasswordAuthenticationFilter .class) .build(); }
+ * 
+ * 
+ * @Bean
+ * 
+ * @Order(3) public SecurityFilterChain consumerFilterChain( HttpSecurity http)
+ * throws Exception { return http .securityMatcher("/consumer/**") .cors(c ->
+ * c.configurationSource( corsConfigurationSource())) .csrf(c -> c.disable())
+ * .sessionManagement(s -> s .sessionCreationPolicy(
+ * SessionCreationPolicy.STATELESS)) .authorizeHttpRequests(auth -> auth
+ * .requestMatchers( // "/consumer/auth/**", "/consumer/admin/**",
+ * "/ws/consumer/**" ).permitAll() .anyRequest().authenticated())
+ * .addFilterBefore( consumerAuthFilter, UsernamePasswordAuthenticationFilter
+ * .class) .build(); } }
+ */  
 
 
-import com.dhatvibs.modules.rider.filter.RiderAuthFilter;
+package com.dhatvibs.modules.config.auth;
+
+import com.dhatvibs.modules.consumer.filter
+        .ConsumerAuthFilter;
+import com.dhatvibs.modules.vendor.filter.VendorAuthFilter;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation
+        .Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation
         .web.builders.HttpSecurity;
@@ -155,7 +119,8 @@ import org.springframework.security.web
         .SecurityFilterChain;
 import org.springframework.security.web.authentication
         .UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors
+        .CorsConfiguration;
 import org.springframework.web.cors
         .CorsConfigurationSource;
 import org.springframework.web.cors
@@ -168,8 +133,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final HeaderAuthFilter headerAuthFilter;
-    private final RiderAuthFilter  riderAuthFilter;
+    private final HeaderAuthFilter   headerAuthFilter;
+    private final ConsumerAuthFilter consumerAuthFilter;
+    // Add VendorAuthFilter injection
+    private final VendorAuthFilter vendorAuthFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -194,16 +161,13 @@ public class SecurityConfig {
         return source;
     }
 
-    // ── Chain 1 — Rider paths (order=1, runs first)
+    // ── Chain 1 — Rider paths (order=1) ──────────
     @Bean
     @Order(1)
     public SecurityFilterChain riderFilterChain(
             HttpSecurity http) throws Exception {
-
         return http
-            // Apply only to rider paths
-            .securityMatcher(
-            		"/rider/**")
+            .securityMatcher("/rider/**")
             .cors(c -> c.configurationSource(
                 corsConfigurationSource()))
             .csrf(c -> c.disable())
@@ -211,26 +175,79 @@ public class SecurityConfig {
                 .sessionCreationPolicy(
                     SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // these rider paths are public
                 .requestMatchers(
-                		"/rider/auth/**",       // public
-                        "/rider/admin/**",      // public
-                        "/ws/rider/**" 
+                    "/rider/auth/**",
+                    "/rider/admin/**",
+                    "/ws/rider/**"
                 ).permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(
-                riderAuthFilter,
+                headerAuthFilter,
                 UsernamePasswordAuthenticationFilter
                     .class)
             .build();
     }
 
-    // ── Chain 2 — All other paths (order=2, runs second)
+    // ── Chain 2 — Consumer paths (order=2) ───────
     @Bean
     @Order(2)
+    public SecurityFilterChain consumerFilterChain(
+            HttpSecurity http) throws Exception {
+        return http
+            .securityMatcher("/consumer/**")
+            .cors(c -> c.configurationSource(
+                corsConfigurationSource()))
+            .csrf(c -> c.disable())
+            .sessionManagement(s -> s
+                .sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/consumer/auth/**",
+                    "/consumer/admin/**",
+                    "/ws/consumer/**"
+                ).permitAll()
+                .anyRequest().authenticated())
+            .addFilterBefore(
+                consumerAuthFilter,
+                UsernamePasswordAuthenticationFilter
+                    .class)
+            .build();
+    }
+    
+    // Add this new chain — Order 3
+    @Bean
+    @Order(3)
+    public SecurityFilterChain vendorFilterChain(
+            HttpSecurity http) throws Exception {
+        return http
+            .securityMatcher("/vendor/**")
+            .cors(c -> c.configurationSource(
+                corsConfigurationSource()))
+            .csrf(c -> c.disable())
+            .sessionManagement(s -> s
+                .sessionCreationPolicy(
+                    SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/vendor/auth/**",
+                    "/vendor/admin/**",
+                    "/ws/vendor/**"
+                ).permitAll()
+                .anyRequest().authenticated())
+            .addFilterBefore(
+                vendorAuthFilter,
+                UsernamePasswordAuthenticationFilter
+                    .class)
+            .build();
+    }
+
+    // ── Chain 3 — All other paths (order=3) ──────
+    // MUST be last — has no securityMatcher
+    @Bean
+    @Order(4)
     public SecurityFilterChain filterChain(
             HttpSecurity http) throws Exception {
-
         return http
             .cors(c -> c.configurationSource(
                 corsConfigurationSource()))
@@ -257,4 +274,10 @@ public class SecurityConfig {
                     .class)
             .build();
     }
+    
+
+
+   
+
+    
 }

@@ -357,6 +357,7 @@ public class RiderAuthFilter
     private boolean isPublicPath(String path) {
         return path.startsWith("/rider/auth/")
             || path.startsWith("/rider/admin/")
+            || path.startsWith("/consumer")           
             || path.startsWith("/ws/rider/")
             || path.startsWith("/swagger-ui")
             || path.startsWith("/v3/api-docs")
@@ -383,5 +384,16 @@ public class RiderAuthFilter
         response.setContentType("application/json");
         response.getWriter()
             .write("{\"error\":\"" + message + "\"}");
+    }
+    
+ // Add this method to RiderAuthFilter.java
+    @Override
+    protected boolean shouldNotFilter(
+            HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // Skip this filter for consumer paths
+        return path.startsWith("/consumer/")
+        		|| path.startsWith("/vendor/");
+        
     }
 }

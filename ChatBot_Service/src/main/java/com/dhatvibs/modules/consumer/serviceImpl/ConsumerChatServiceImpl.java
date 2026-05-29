@@ -3,6 +3,8 @@
 
 package com.dhatvibs.modules.consumer.serviceImpl;
 
+import com.dhatvibs.modules.consumer.client.ConsumerApiClient;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.dhatvibs.modules.consumer.dto.*;
 import com.dhatvibs.modules.consumer.entity.*;
 import com.dhatvibs.modules.consumer.repository.*;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server
         .ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +38,8 @@ public class ConsumerChatServiceImpl
     private final ConsumerQueryService
                                 queryService;
     private final SimpMessagingTemplate messaging;
+    
+    private final ConsumerApiClient consumerApiClient;
 
     @Override
     public ConsumerChatStartResponse startSession(
@@ -109,9 +114,54 @@ public class ConsumerChatServiceImpl
             .build();
     }
 
+	/*
+	 * @Override public ConsumerSessionStatusResponse resolveOrEscalate( UUID
+	 * sessionId, boolean resolved, String consumerId) {
+	 * 
+	 * ConsumerChatSession session = sessionRepo.findById(sessionId) .orElseThrow(()
+	 * -> new ResponseStatusException( HttpStatus.NOT_FOUND, "Session not found"));
+	 * 
+	 * if (resolved) { session.setStatus("RESOLVED");
+	 * session.setResolutionType("RESOLVED"); session.setChatEnabled(false);
+	 * session.setEndedAt(LocalDateTime.now()); sessionRepo.save(session);
+	 * 
+	 * saveMessage(sessionId, "SYSTEM", "Issue resolved. Thank you!", null, null,
+	 * "SYSTEM");
+	 * 
+	 * broadcast(sessionId, "Session closed. Thank you!", "SYSTEM", "RESOLVED");
+	 * 
+	 * return ConsumerSessionStatusResponse .builder() .sessionId(sessionId)
+	 * .status("RESOLVED") .chatEnabled(false) .resolutionType("RESOLVED")
+	 * .message("Issue resolved.") .timestamp(LocalDateTime.now()) .build();
+	 * 
+	 * } else { session.setChatEnabled(true);
+	 * session.setResolutionType("ESCALATED"); sessionRepo.save(session);
+	 * 
+	 * // Raise ticket immediately ConsumerTicket ticket = ConsumerTicket.builder()
+	 * .sessionId(sessionId) .consumerId(consumerId) .orderId(
+	 * session.getContextOrderId()) .category("SUPPORT") .description(
+	 * "Consumer clicked Issue " + "Not Resolved.") .status("OPEN")
+	 * .createdAt(LocalDateTime.now()) .updatedAt(LocalDateTime.now()) .build();
+	 * 
+	 * ConsumerTicket saved = ticketRepo.save(ticket);
+	 * 
+	 * String ticketNum = "TKT-" + saved.getId().toString() .substring(0,
+	 * 8).toUpperCase();
+	 * 
+	 * String msg = "Free chat enabled.\n" + "Ticket " + ticketNum + " created.\n" +
+	 * "Please describe your issue.";
+	 * 
+	 * saveMessage(sessionId, "SYSTEM", msg, null, null, "SYSTEM");
+	 * broadcast(sessionId, msg, "SYSTEM", "ESCALATED");
+	 * 
+	 * return ConsumerSessionStatusResponse .builder() .sessionId(sessionId)
+	 * .status("OPEN") .chatEnabled(true) .resolutionType("ESCALATED")
+	 * .message("Free chat enabled. " + "Ticket raised.")
+	 * .timestamp(LocalDateTime.now()) .build(); } }
+	 */
+    
     @Override
-    public ConsumerSessionStatusResponse
-            resolveOrEscalate(
+    public ConsumerSessionStatusResponse resolveOrEscalate(
             UUID sessionId,
             boolean resolved,
             String consumerId) {
@@ -138,8 +188,7 @@ public class ConsumerChatServiceImpl
                 "Session closed. Thank you!",
                 "SYSTEM", "RESOLVED");
 
-            return ConsumerSessionStatusResponse
-                .builder()
+            return ConsumerSessionStatusResponse.builder()
                 .sessionId(sessionId)
                 .status("RESOLVED")
                 .chatEnabled(false)
@@ -153,13 +202,66 @@ public class ConsumerChatServiceImpl
             session.setResolutionType("ESCALATED");
             sessionRepo.save(session);
 
-            // Raise ticket immediately
+            // ── Build chat summary from history ──────
+            String chatSummary = buildChatSummary(
+                sessionId);
+
+            // ── Get order details from Swachvega ─────
+            String orderNumber = null;
+            String orderStatus = null;
+            BigDecimal orderAmount = null;
+            String storeName   = null;
+            String consumerName  = null;
+            String consumerPhone = null;
+            String consumerEmail = null;
+
+            String token = session.getConsumerToken();
+            String orderId = session.getContextOrderId();
+
+            if (orderId != null
+                    && token != null) {
+                try {
+                    JsonNode orderData =
+                        consumerApiClient.getOrderById(
+                            orderId, token);
+                    if (orderData != null) {
+                        JsonNode o = orderData.has("order")
+                            ? orderData.path("order")
+                            : orderData;
+                        orderNumber = getField(o,
+                            "orderNumber", "orderId");
+                        orderStatus = getField(o,
+                            "status", "orderStatus");
+                        String amt = getField(o,
+                            "totalAmount", "total");
+                        if (!amt.equals("N/A"))
+                            orderAmount =
+                                new BigDecimal(amt);
+                        storeName = getField(o,
+                            "storeName",
+                            "restaurantName");
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not fetch order "
+                           + "details: {}",
+                             e.getMessage());
+                }
+            }
+
+            // ── Raise ticket with full details ────────
             ConsumerTicket ticket =
                 ConsumerTicket.builder()
                     .sessionId(sessionId)
                     .consumerId(consumerId)
-                    .orderId(
-                        session.getContextOrderId())
+                    .consumerName(consumerName)
+                    .consumerPhone(consumerPhone)
+                    .consumerEmail(consumerEmail)
+                    .orderId(orderId)
+                    .orderNumber(orderNumber)
+                    .orderStatus(orderStatus)
+                    .orderAmount(orderAmount)
+                    .storeName(storeName)
+                    .chatSummary(chatSummary)
                     .category("SUPPORT")
                     .description(
                         "Consumer clicked Issue "
@@ -172,31 +274,62 @@ public class ConsumerChatServiceImpl
             ConsumerTicket saved =
                 ticketRepo.save(ticket);
 
-            String ticketNum = "TKT-"
+            log.info("Ticket raised: {} for consumer: {}",
+                     saved.getId(), consumerId);
+
+            String msg = "Your issue has been escalated.\n"
+                + "Our support team will contact you "
+                + "shortly.\n"
+                + "Ticket ID: TKT-"
                 + saved.getId().toString()
                     .substring(0, 8).toUpperCase();
-
-            String msg = "Free chat enabled.\n"
-                + "Ticket " + ticketNum
-                + " created.\n"
-                + "Please describe your issue.";
 
             saveMessage(sessionId, "SYSTEM",
                 msg, null, null, "SYSTEM");
             broadcast(sessionId, msg,
                 "SYSTEM", "ESCALATED");
 
-            return ConsumerSessionStatusResponse
-                .builder()
+            return ConsumerSessionStatusResponse.builder()
                 .sessionId(sessionId)
                 .status("OPEN")
                 .chatEnabled(true)
                 .resolutionType("ESCALATED")
-                .message("Free chat enabled. "
-                       + "Ticket raised.")
+                .message(msg)
                 .timestamp(LocalDateTime.now())
                 .build();
         }
+    }
+
+    // ── Build summary of full chat history ───────────
+    private String buildChatSummary(UUID sessionId) {
+        List<ConsumerChatMessage> messages =
+            messageRepo.findBySessionIdOrderBySentAtAsc(
+                sessionId);
+
+        StringBuilder sb = new StringBuilder();
+        for (ConsumerChatMessage m : messages) {
+            if ("SYSTEM".equals(m.getSenderType()))
+                continue;
+            sb.append(m.getSenderType())
+              .append(": ")
+              .append(m.getMessage())
+              .append("\n");
+        }
+        return sb.toString();
+    }
+
+    // ── Helper to get field from JsonNode ────────────
+    private String getField(
+            JsonNode node, String... fields) {
+        for (String f : fields) {
+            JsonNode v = node.path(f);
+            if (!v.isMissingNode() && !v.isNull()
+                    && !v.asText().isBlank()
+                    && !v.asText().equals("null")) {
+                return v.asText();
+            }
+        }
+        return "N/A";
     }
 
     @Override
@@ -256,34 +389,7 @@ public class ConsumerChatServiceImpl
         return response;
     }
 
-    // ── orderId-based history ─────────────────────
-    // Industry standard — Swiggy/Zomato style
-    // All sessions for same order merged into
-    // one continuous timeline
-	/*
-	 * @Override public ConsumerOrderHistoryResponse getHistoryByOrderId(String
-	 * orderId) {
-	 * 
-	 * List<ConsumerChatSession> sessions = sessionRepo.findAllByOrderId(orderId);
-	 * 
-	 * if (sessions.isEmpty()) throw new ResponseStatusException(
-	 * HttpStatus.NOT_FOUND, "No chat history for order: " + orderId);
-	 * 
-	 * String latestStatus = sessions.get(0).getStatus();
-	 * 
-	 * // Merge ALL messages from ALL sessions // into one timeline — sorted by time
-	 * List<ConsumerOrderHistoryResponse.MessageDto> allMessages = sessions.stream()
-	 * .flatMap(s -> messageRepo .findBySessionIdOrderBySentAtAsc( s.getId())
-	 * .stream() .map(m -> ConsumerOrderHistoryResponse .MessageDto.builder()
-	 * .id(m.getId()) .senderType( m.getSenderType()) .message(m.getMessage())
-	 * .messageType( m.getMessageType()) .intent(m.getIntent())
-	 * .sentAt(m.getSentAt()) .sessionId( s.getId().toString()) .build()))
-	 * .sorted(Comparator.comparing( ConsumerOrderHistoryResponse
-	 * .MessageDto::getSentAt)) .collect(Collectors.toList());
-	 * 
-	 * return ConsumerOrderHistoryResponse.builder() .orderId(orderId)
-	 * .latestStatus(latestStatus) .messages(allMessages) .build(); }
-	 */
+ 
     
     @Override
     public ConsumerOrderHistoryResponse getHistoryByOrderId(

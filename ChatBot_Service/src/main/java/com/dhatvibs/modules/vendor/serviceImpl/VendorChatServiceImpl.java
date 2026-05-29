@@ -1,5 +1,6 @@
 package com.dhatvibs.modules.vendor.serviceImpl;
 
+import com.dhatvibs.modules.vendor.client.VendorApiClient;
 import com.dhatvibs.modules.vendor.dto.*;
 import com.dhatvibs.modules.vendor.entity.*;
 import com.dhatvibs.modules.vendor.respository.*;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server
         .ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,6 +36,8 @@ public class VendorChatServiceImpl
     private final VendorQueryService
                                 queryService;
     private final SimpMessagingTemplate messaging;
+    
+    private final VendorApiClient vendorApiClient;
 
     @Override
     public VendorChatStartResponse startSession(
@@ -103,9 +107,54 @@ public class VendorChatServiceImpl
             .build();
     }
 
+	/*
+	 * @Override public VendorSessionStatusResponse resolveOrEscalate( UUID
+	 * sessionId, boolean resolved, String vendorId) {
+	 * 
+	 * VendorChatSession session = sessionRepo.findById(sessionId) .orElseThrow(()
+	 * -> new ResponseStatusException( HttpStatus.NOT_FOUND, "Session not found"));
+	 * 
+	 * if (resolved) { session.setStatus("RESOLVED");
+	 * session.setResolutionType("RESOLVED"); session.setChatEnabled(false);
+	 * session.setEndedAt(LocalDateTime.now()); sessionRepo.save(session);
+	 * 
+	 * saveMessage(sessionId, "SYSTEM", "Issue resolved. Thank you!", null, null,
+	 * "SYSTEM");
+	 * 
+	 * broadcast(sessionId, "Session closed. Thank you!", "SYSTEM", "RESOLVED");
+	 * 
+	 * return VendorSessionStatusResponse .builder() .sessionId(sessionId)
+	 * .status("RESOLVED") .chatEnabled(false) .resolutionType("RESOLVED")
+	 * .message("Issue resolved.") .timestamp(LocalDateTime.now()) .build();
+	 * 
+	 * } else { session.setChatEnabled(true);
+	 * session.setResolutionType("ESCALATED"); sessionRepo.save(session);
+	 * 
+	 * VendorTicket ticket = VendorTicket.builder() .sessionId(sessionId)
+	 * .vendorId(vendorId) .orderId( session.getContextOrderId())
+	 * .category("SUPPORT") .description( "Vendor clicked Issue " + "Not Resolved.")
+	 * .status("OPEN") .createdAt(LocalDateTime.now())
+	 * .updatedAt(LocalDateTime.now()) .build();
+	 * 
+	 * VendorTicket saved = ticketRepo.save(ticket);
+	 * 
+	 * String ticketNum = "TKT-" + saved.getId().toString() .substring(0,
+	 * 8).toUpperCase();
+	 * 
+	 * String msg = "Free chat enabled.\n" + "Ticket " + ticketNum + " created.\n" +
+	 * "Please describe your issue.";
+	 * 
+	 * saveMessage(sessionId, "SYSTEM", msg, null, null, "SYSTEM");
+	 * broadcast(sessionId, msg, "SYSTEM", "ESCALATED");
+	 * 
+	 * return VendorSessionStatusResponse .builder() .sessionId(sessionId)
+	 * .status("OPEN") .chatEnabled(true) .resolutionType("ESCALATED")
+	 * .message("Free chat enabled. " + "Ticket raised.")
+	 * .timestamp(LocalDateTime.now()) .build(); } }
+	 */
+    
     @Override
-    public VendorSessionStatusResponse
-            resolveOrEscalate(
+    public VendorSessionStatusResponse resolveOrEscalate(
             UUID sessionId,
             boolean resolved,
             String vendorId) {
@@ -132,8 +181,7 @@ public class VendorChatServiceImpl
                 "Session closed. Thank you!",
                 "SYSTEM", "RESOLVED");
 
-            return VendorSessionStatusResponse
-                .builder()
+            return VendorSessionStatusResponse.builder()
                 .sessionId(sessionId)
                 .status("RESOLVED")
                 .chatEnabled(false)
@@ -147,49 +195,145 @@ public class VendorChatServiceImpl
             session.setResolutionType("ESCALATED");
             sessionRepo.save(session);
 
-            VendorTicket ticket =
-                VendorTicket.builder()
-                    .sessionId(sessionId)
-                    .vendorId(vendorId)
-                    .orderId(
-                        session.getContextOrderId())
-                    .category("SUPPORT")
-                    .description(
-                        "Vendor clicked Issue "
-                        + "Not Resolved.")
-                    .status("OPEN")
-                    .createdAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
+            String chatSummary =
+                buildChatSummary(sessionId);
 
-            VendorTicket saved =
-                ticketRepo.save(ticket);
+            String orderNumber = null;
+            String orderStatus = null;
+            BigDecimal orderAmount = null;
+            String storeName   = null;
+            String vendorName  = null;
+            String vendorPhone = null;
+            String vendorEmail = null;
 
-            String ticketNum = "TKT-"
+            String token   = session.getVendorToken();
+            String orderId = session.getContextOrderId();
+
+            if (orderId != null && token != null) {
+                try {
+                    JsonNode orderData =
+                        vendorApiClient.getOrderById(
+                            orderId, token);
+                    if (orderData != null) {
+                        JsonNode o = orderData.has("order")
+                            ? orderData.path("order")
+                            : orderData;
+                        orderNumber = getField(o,
+                            "orderNumber", "orderId");
+                        orderStatus = getField(o,
+                            "status", "orderStatus");
+                        String amt = getField(o,
+                            "totalAmount", "total");
+                        if (!amt.equals("N/A"))
+                            orderAmount =
+                               new BigDecimal(amt);
+                        storeName = getField(o,
+                            "storeName",
+                            "merchantName");
+                    }
+
+                    // Get store/vendor details
+                    JsonNode storeData =
+                        vendorApiClient
+                            .getStoreDetails(token);
+                    if (storeData != null) {
+                        JsonNode store =
+                            storeData.has("data")
+                                ? storeData.path("data")
+                                : storeData;
+                        vendorName = getField(store,
+                            "name", "storeName");
+                        vendorPhone = getField(store,
+                            "phone", "phoneNumber",
+                            "contactNumber");
+                        vendorEmail = getField(store,
+                            "email");
+                        if (storeName == null
+                                || storeName.equals("N/A"))
+                            storeName = vendorName;
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not fetch details: {}",
+                             e.getMessage());
+                }
+            }
+
+            VendorTicket ticket = VendorTicket.builder()
+                .sessionId(sessionId)
+                .vendorId(vendorId)
+                .vendorName(vendorName)
+                .vendorPhone(vendorPhone)
+                .vendorEmail(vendorEmail)
+                .orderId(orderId)
+                .orderNumber(orderNumber)
+                .orderStatus(orderStatus)
+                .orderAmount(orderAmount)
+                .storeName(storeName)
+                .chatSummary(chatSummary)
+                .category("SUPPORT")
+                .description(
+                    "Vendor clicked Issue Not Resolved.")
+                .status("OPEN")
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+            VendorTicket saved = ticketRepo.save(ticket);
+
+            log.info("Ticket raised: {} for vendor: {}",
+                     saved.getId(), vendorId);
+
+            String msg =
+                "Your issue has been escalated.\n"
+                + "Our support team will contact you "
+                + "shortly.\n"
+                + "Ticket ID: TKT-"
                 + saved.getId().toString()
                     .substring(0, 8).toUpperCase();
-
-            String msg = "Free chat enabled.\n"
-                + "Ticket " + ticketNum
-                + " created.\n"
-                + "Please describe your issue.";
 
             saveMessage(sessionId, "SYSTEM",
                 msg, null, null, "SYSTEM");
             broadcast(sessionId, msg,
                 "SYSTEM", "ESCALATED");
 
-            return VendorSessionStatusResponse
-                .builder()
+            return VendorSessionStatusResponse.builder()
                 .sessionId(sessionId)
                 .status("OPEN")
                 .chatEnabled(true)
                 .resolutionType("ESCALATED")
-                .message("Free chat enabled. "
-                       + "Ticket raised.")
+                .message(msg)
                 .timestamp(LocalDateTime.now())
                 .build();
         }
+    }
+
+    private String buildChatSummary(UUID sessionId) {
+        List<VendorChatMessage> messages =
+            messageRepo.findBySessionIdOrderBySentAtAsc(
+                sessionId);
+        StringBuilder sb = new StringBuilder();
+        for (VendorChatMessage m : messages) {
+            if ("SYSTEM".equals(m.getSenderType()))
+                continue;
+            sb.append(m.getSenderType())
+              .append(": ")
+              .append(m.getMessage())
+              .append("\n");
+        }
+        return sb.toString();
+    }
+
+    private String getField(
+            JsonNode node, String... fields) {
+        for (String f : fields) {
+            JsonNode v = node.path(f);
+            if (!v.isMissingNode() && !v.isNull()
+                    && !v.asText().isBlank()
+                    && !v.asText().equals("null")) {
+                return v.asText();
+            }
+        }
+        return "N/A";
     }
 
     @Override
@@ -248,29 +392,7 @@ public class VendorChatServiceImpl
         return response;
     }
 
-	/*
-	 * @Override public VendorOrderHistoryResponse getHistoryByOrderId(String
-	 * orderId) {
-	 * 
-	 * List<VendorChatSession> sessions = sessionRepo.findAllByOrderId(orderId);
-	 * 
-	 * if (sessions.isEmpty()) throw new ResponseStatusException(
-	 * HttpStatus.NOT_FOUND, "No chat history for order: " + orderId);
-	 * 
-	 * String latestStatus = sessions.get(0).getStatus();
-	 * 
-	 * List<VendorOrderHistoryResponse.MessageDto> allMessages = sessions.stream()
-	 * .flatMap(s -> messageRepo .findBySessionIdOrderBySentAtAsc( s.getId())
-	 * .stream() .map(m -> VendorOrderHistoryResponse .MessageDto.builder()
-	 * .id(m.getId()) .senderType( m.getSenderType()) .message(m.getMessage())
-	 * .messageType( m.getMessageType()) .intent(m.getIntent())
-	 * .sentAt(m.getSentAt()) .sessionId( s.getId() .toString()) .build()))
-	 * .sorted(Comparator.comparing( VendorOrderHistoryResponse
-	 * .MessageDto::getSentAt)) .collect(Collectors.toList());
-	 * 
-	 * return VendorOrderHistoryResponse.builder() .orderId(orderId)
-	 * .latestStatus(latestStatus) .messages(allMessages) .build(); }
-	 */
+	
     
     
     @Override

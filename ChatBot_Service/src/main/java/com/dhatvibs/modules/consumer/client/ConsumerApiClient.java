@@ -20,6 +20,7 @@ public class ConsumerApiClient {
         new RestTemplate();
     private final ObjectMapper objectMapper =
         new ObjectMapper();
+    
 
     // ── ORDERS ────────────────────────────────────
 

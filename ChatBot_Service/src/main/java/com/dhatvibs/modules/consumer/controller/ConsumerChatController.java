@@ -136,7 +136,7 @@ public class ConsumerChatController {
         description = """
             Only works after resolved=false.
             WebSocket:
-              Connect:   ws://host:8082/ws/chat
+              Connect:   ws://host:8082/ws/consumer
               Send to:   /app/consumer.message
               Subscribe: /topic/consumer/{sessionId}
             """)
@@ -188,6 +188,9 @@ public class ConsumerChatController {
 
     	    return ResponseEntity.ok(
     	        chatService.getHistoryByOrderId(
-    	            orderId, page, size));
+    	            orderId,
+    	            getConsumerId(),
+    	            page,
+    	            size));
     	}
 }

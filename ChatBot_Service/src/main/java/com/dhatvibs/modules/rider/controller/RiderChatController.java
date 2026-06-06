@@ -154,7 +154,9 @@ public class RiderChatController {
          getHistoryByOrderId(
          @PathVariable String orderId) {
      return ResponseEntity.ok(
-         chatService.getHistoryByOrderId(orderId));
+         chatService.getHistoryByOrderId(
+             orderId,
+             getRiderId()));
  }
 
 	/*

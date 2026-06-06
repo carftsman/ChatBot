@@ -1,12 +1,15 @@
 package com.dhatvibs.modules.consumer.filter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.dhatvibs.modules.config.auth.JwtTokenValidator;
+
+import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication
         .UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority
@@ -18,17 +21,18 @@ import org.springframework.web.filter
         .OncePerRequestFilter;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ConsumerAuthFilter
         extends OncePerRequestFilter {
 
-    private final ObjectMapper objectMapper =
-        new ObjectMapper();
+    private final JwtTokenValidator jwtTokenValidator;
+
+    @Value("${jwt.swachvega.secret:${jwt.secret:}}")
+    private String swachvegaSecret;
 
     @Override
     protected void doFilterInternal(
@@ -56,7 +60,7 @@ public class ConsumerAuthFilter
         }
 
         String token = authHeader.substring(7);
-        String consumerId = decodeConsumerId(token);
+        String consumerId = resolveConsumerId(token);
 
         if (consumerId == null) {
             sendError(response,
@@ -71,86 +75,21 @@ public class ConsumerAuthFilter
         chain.doFilter(request, response);
     }
 
-    private String decodeConsumerId(String token) {
-        try {
-            String[] parts = token.split("\\.");
-            if (parts.length < 2) return null;
-
-            String payload = parts[1];
-
-            // Fix base64url padding
-            int pad = payload.length() % 4;
-            if (pad > 0)
-                payload += "=".repeat(4 - pad);
-            payload = payload
-                .replace('-', '+')
-                .replace('_', '/');
-
-            byte[] decoded = Base64.getDecoder()
-                .decode(payload);
-            String json = new String(
-                decoded, StandardCharsets.UTF_8);
-
-            log.info("Consumer JWT payload: {}",
-                     json);
-
-            JsonNode node =
-                objectMapper.readTree(json);
-
-            // ── Check expiry only ─────────────────
-            // Do NOT check type field
-            // Swachvega JWT may not have type field
-            if (node.has("exp")) {
-                long exp = node.get("exp").asLong();
-                long now =
-                    System.currentTimeMillis() / 1000;
-                if (now > exp) {
-                    log.warn("Token expired. "
-                           + "exp={} now={}",
-                             exp, now);
-                    return null;
-                }
-            }
-
-            // ── Extract userId ────────────────────
-            // Swachvega uses "sub" field
-            if (node.has("sub")
-                    && !node.get("sub").isNull()
-                    && !node.get("sub").asText()
-                            .isBlank()) {
-                log.info("Found consumerId in sub: {}",
-                         node.get("sub").asText());
-                return node.get("sub").asText();
-            }
-
-            // Fallback fields
-            for (String field : List.of(
-                    "userId", "id", "consumerId",
-                    "user_id", "phoneNumber")) {
-                if (node.has(field)
-                        && !node.get(field).isNull()) {
-                    log.info("Found consumerId "
-                           + "in {}: {}",
-                             field,
-                             node.get(field).asText());
-                    return node.get(field).asText();
-                }
-            }
-
-            log.warn("No userId found in token. "
-                   + "Payload: {}", json);
-            return null;
-
-        } catch (Exception e) {
-            log.error("Token decode failed: {}",
-                      e.getMessage());
+    private String resolveConsumerId(String token) {
+        Claims claims = jwtTokenValidator.verifyAndGetClaims(
+            token,
+            List.of(swachvegaSecret));
+        if (claims == null) {
             return null;
         }
+        return jwtTokenValidator.extractFirstPresent(
+            claims,
+            "sub", "userId", "id", "consumerId",
+            "user_id", "phoneNumber");
     }
 
     private boolean isPublicPath(String path) {
         return path.startsWith("/consumer/auth/")
-            || path.startsWith("/consumer/admin/")
             || path.startsWith("/ws/consumer/")
             || path.startsWith("/swagger-ui")
             || path.startsWith("/v3/api-docs")
@@ -177,13 +116,14 @@ public class ConsumerAuthFilter
             .write("{\"error\":\""
                    + message + "\"}");
     }
-    
+
     @Override
     protected boolean shouldNotFilter(
             HttpServletRequest request) {
         String path = request.getRequestURI();
-        // Skip this filter for rider paths
         return path.startsWith("/rider/")
-        		|| path.startsWith("/vendor/");
+            || path.startsWith("/vendor/")
+            || path.startsWith("/riderchatbot/")
+            || path.contains("/admin/");
     }
 }

@@ -92,28 +92,7 @@ public class VendorFaqServiceImpl implements VendorFaqService {
 				.build();
 	}
 
-	/*
-	 * private String resolveFromApi( String intent, String token, String orderId) {
-	 * 
-	 * if (token == null) return "Session expired. Login again.";
-	 * 
-	 * return switch (intent) {
-	 * 
-	 * case "pending_orders" -> queryService.getPendingOrder(token); case
-	 * "delivered_orders" -> queryService.getDeliveredOrders(token); case
-	 * "cancelled_orders" -> queryService.getCancelledOrders(token);
-	 * 
-	 * 
-	 * case "pending_orders" -> queryService.getPendingOrders(token); case
-	 * "delivered_orders" -> queryService.getDeliveredOrders(token); case
-	 * "cancelled_orders"-> queryService.getCancelledOrders(token);
-	 * 
-	 * case "order_details" -> queryService.getOrderDetails( orderId, token); case
-	 * "store_status", "store_details" -> queryService.getStoreDetails(token); case
-	 * "payout_status", "wallet_balance" -> queryService.getWalletBalance(token);
-	 * case "transaction_history" -> queryService.getTransactionHistory( token);
-	 * default -> "I am checking this for you."; }; }
-	 */
+	
 	
 	private String resolveFromApi(
 	        String intent, String token,
@@ -123,18 +102,7 @@ public class VendorFaqServiceImpl implements VendorFaqService {
 	        return "Session expired. Login again.";
 
 	    return switch (intent) {
-		/*
-		 * case "pending_orders" -> { List<Map> orders =
-		 * queryService.getPendingOrders(token); yield orders.isEmpty() ?
-		 * "No pending orders found." : orders.size() + " pending orders. " +
-		 * "First order: " + orders.get(0).path("orderNumber") .asText("N/A"); } case
-		 * "delivered_orders" -> { List<Map> orders =
-		 * queryService.getDeliveredOrders(token); yield orders.isEmpty() ?
-		 * "No delivered orders found." : orders.size() + " delivered orders."; } case
-		 * "cancelled_orders" -> { List<Map> orders =
-		 * queryService.getCancelledOrders(token); yield orders.isEmpty() ?
-		 * "No cancelled orders found." : orders.size() + " cancelled orders."; }
-		 */
+		
 	    
 	    case "pending_orders" -> {
 	        List<Map> orders =
@@ -160,9 +128,15 @@ public class VendorFaqServiceImpl implements VendorFaqService {
 	        case "order_details" ->
 	            queryService.getOrderDetails(
 	                orderId, token);
+		/*
+		 * case "store_status", "store_details" -> queryService.getStoreDetails(token);
+		 */
 	        case "store_status",
-	             "store_details" ->
-	            queryService.getStoreDetails(token);
+	        "store_details" -> {
+	       // Dashboard API gives order stats + rating
+	       // Use it to show store summary
+	       yield queryService.getStoreDetails(token);
+	   }
 	        case "payout_status",
 	             "wallet_balance" ->
 	            queryService.getWalletBalance(token);

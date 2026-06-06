@@ -39,6 +39,7 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
         		|| path.startsWith("/rider/") 
         		|| path.startsWith("/consumer/")
         		|| path.startsWith("/vendor/")
+        		|| path.startsWith("/riderchatbot/")
                 || path.startsWith("/swagger-ui")
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/webjars")) {

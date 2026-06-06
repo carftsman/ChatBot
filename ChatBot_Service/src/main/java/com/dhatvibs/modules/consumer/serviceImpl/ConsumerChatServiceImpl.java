@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.dhatvibs.modules.consumer.dto.*;
 import com.dhatvibs.modules.consumer.entity.*;
 import com.dhatvibs.modules.consumer.repository.*;
+import com.dhatvibs.modules.config.chat.ChatSessionAccess;
 import com.dhatvibs.modules.consumer.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -172,6 +173,10 @@ public class ConsumerChatServiceImpl
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Session not found"));
+
+        ChatSessionAccess.assertOwner(
+            session.getConsumerId(),
+            consumerId);
 
         if (resolved) {
             session.setStatus("RESOLVED");
@@ -344,6 +349,10 @@ public class ConsumerChatServiceImpl
                         HttpStatus.NOT_FOUND,
                         "Session not found"));
 
+        ChatSessionAccess.assertOwner(
+            session.getConsumerId(),
+            request.getConsumerId());
+
         if (!Boolean.TRUE.equals(
                 session.getChatEnabled())) {
             ConsumerWebSocketResponse blocked =
@@ -394,11 +403,16 @@ public class ConsumerChatServiceImpl
     @Override
     public ConsumerOrderHistoryResponse getHistoryByOrderId(
             String orderId,
+            String consumerId,
             int page,
             int size) {
 
         List<ConsumerChatSession> sessions =
-            sessionRepo.findAllByOrderId(orderId);
+            sessionRepo.findAllByOrderId(orderId)
+                .stream()
+                .filter(s -> consumerId.equals(
+                    s.getConsumerId()))
+                .toList();
 
         if (sessions.isEmpty())
             throw new ResponseStatusException(

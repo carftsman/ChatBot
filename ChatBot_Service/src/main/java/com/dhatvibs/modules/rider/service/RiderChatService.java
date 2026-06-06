@@ -14,5 +14,6 @@ public interface RiderChatService {
     List<ChatHistoryResponse> getAllHistory(String riderId);
  // Add to RiderChatService.java
     ChatHistoryResponse getHistoryByOrderId(
-            String orderId);
+            String orderId,
+            String riderId);
 }

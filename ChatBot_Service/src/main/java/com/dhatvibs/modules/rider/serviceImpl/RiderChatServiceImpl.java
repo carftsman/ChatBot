@@ -4,6 +4,7 @@ package com.dhatvibs.modules.rider.serviceImpl;
 import com.dhatvibs.modules.rider.dto.*;
 import com.dhatvibs.modules.rider.entities.*;
 import com.dhatvibs.modules.rider.repository.*;
+import com.dhatvibs.modules.config.chat.ChatSessionAccess;
 import com.dhatvibs.modules.rider.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -153,6 +154,10 @@ public class RiderChatServiceImpl
                         HttpStatus.NOT_FOUND,
                         "Session not found"));
 
+        ChatSessionAccess.assertOwner(
+            session.getRiderId(),
+            riderId);
+
         if (resolved) {
             //  Issue Resolved — close session
             session.setStatus("RESOLVED");
@@ -239,6 +244,12 @@ public class RiderChatServiceImpl
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Session not found"));
+
+        if (request.getRiderId() != null) {
+            ChatSessionAccess.assertOwner(
+                session.getRiderId(),
+                request.getRiderId());
+        }
 
         if (!Boolean.TRUE.equals(
                 session.getChatEnabled())) {
@@ -529,7 +540,8 @@ public class RiderChatServiceImpl
  // Add to RiderChatServiceImpl.java
     @Override
     public ChatHistoryResponse getHistoryByOrderId(
-            String orderId) {
+            String orderId,
+            String riderId) {
 
         RiderChatSession session = sessionRepo
             .findByContextOrderId(orderId)
@@ -538,6 +550,10 @@ public class RiderChatServiceImpl
                     HttpStatus.NOT_FOUND,
                     "No chat found for order: "
                     + orderId));
+
+        ChatSessionAccess.assertOwner(
+            session.getRiderId(),
+            riderId);
 
         List<RiderChatMessage> messages =
             messageRepo

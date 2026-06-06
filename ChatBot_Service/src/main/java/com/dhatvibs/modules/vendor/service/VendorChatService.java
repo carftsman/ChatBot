@@ -24,6 +24,7 @@ public interface VendorChatService {
  // Replace old method
     VendorOrderHistoryResponse getHistoryByOrderId(
             String orderId,
+            String vendorId,
             int page,
             int size);
 }

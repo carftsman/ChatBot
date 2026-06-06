@@ -4,6 +4,7 @@ import com.dhatvibs.modules.vendor.client.VendorApiClient;
 import com.dhatvibs.modules.vendor.dto.*;
 import com.dhatvibs.modules.vendor.entity.*;
 import com.dhatvibs.modules.vendor.respository.*;
+import com.dhatvibs.modules.config.chat.ChatSessionAccess;
 import com.dhatvibs.modules.vendor.service.*;
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -165,6 +166,10 @@ public class VendorChatServiceImpl
                     new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Session not found"));
+
+        ChatSessionAccess.assertOwner(
+            session.getVendorId(),
+            vendorId);
 
         if (resolved) {
             session.setStatus("RESOLVED");
@@ -348,6 +353,10 @@ public class VendorChatServiceImpl
                         HttpStatus.NOT_FOUND,
                         "Session not found"));
 
+        ChatSessionAccess.assertOwner(
+            session.getVendorId(),
+            request.getVendorId());
+
         if (!Boolean.TRUE.equals(
                 session.getChatEnabled())) {
             VendorWebSocketResponse blocked =
@@ -398,11 +407,16 @@ public class VendorChatServiceImpl
     @Override
     public VendorOrderHistoryResponse getHistoryByOrderId(
             String orderId,
+            String vendorId,
             int page,
             int size) {
 
         List<VendorChatSession> sessions =
-            sessionRepo.findAllByOrderId(orderId);
+            sessionRepo.findAllByOrderId(orderId)
+                .stream()
+                .filter(s -> vendorId.equals(
+                    s.getVendorId()))
+                .toList();
 
         if (sessions.isEmpty())
             throw new ResponseStatusException(

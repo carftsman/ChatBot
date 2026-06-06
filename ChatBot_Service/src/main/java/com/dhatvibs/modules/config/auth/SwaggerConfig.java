@@ -58,6 +58,19 @@ public class SwaggerConfig {
             .pathsToMatch("/vendor/**")
             .build();
     }
+    
+    
+    @Bean
+    public GroupedOpenApi riderChatbotApis() {
+        return GroupedOpenApi.builder()
+            .group("5-riderchatbot-module")
+            .displayName("Rider Chatbot Module")
+            .packagesToScan(
+                "com.dhatvibs.modules.riderchatbot"
+                + ".controller")
+            .pathsToMatch("/riderchatbot/**")
+            .build();
+    }
 
     // ── Main OpenAPI info ────────────────────────
     @Bean

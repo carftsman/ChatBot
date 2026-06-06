@@ -131,6 +131,9 @@ public class VendorChatController {
 
     	    return ResponseEntity.ok(
     	        chatService.getHistoryByOrderId(
-    	            orderId, page, size));
+    	            orderId,
+    	            getVendorId(),
+    	            page,
+    	            size));
     	}
 }

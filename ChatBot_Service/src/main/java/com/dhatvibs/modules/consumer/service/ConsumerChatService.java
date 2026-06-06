@@ -27,6 +27,7 @@ public interface ConsumerChatService {
  // Replace old method
     ConsumerOrderHistoryResponse getHistoryByOrderId(
             String orderId,
+            String consumerId,
             int page,
             int size);
 }

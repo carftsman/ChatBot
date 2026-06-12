@@ -56,77 +56,63 @@ public class RiderChatbotChatController {
 	 * 
 	 * @RequestParam String riderToken) {
 	 * 
-	 * log.info("=== getRecentOrders called ===");
-	 * 
-	 * // Try both endpoints and log both responses JsonNode d1 =
+	 * // /api/orders/delivered → { success, count, orders: [...] } JsonNode d =
 	 * apiClient.getOrderHistory(riderToken);
-	 * log.info("delivered orders response: {}", d1 != null ? d1.toPrettyString()
-	 * .substring(0, Math.min(500, d1.toPrettyString().length())) : "NULL");
 	 * 
-	 * // Also try profile orders history JsonNode d2 =
-	 * apiClient.getDeliveredOrdersHistory( riderToken);
-	 * log.info("profile orders history response: {}", d2 != null ?
-	 * d2.toPrettyString() .substring(0, Math.min(500,
-	 * d2.toPrettyString().length())) : "NULL");
-	 * 
-	 * // Use whichever has data JsonNode d = d1; if (d == null || !hasOrders(d)) d
-	 * = d2;
+	 * log.info("getRecentOrders: {}", d != null ? d.toPrettyString() .substring(0,
+	 * Math.min(300, d.toPrettyString().length())) : "NULL");
 	 * 
 	 * if (d == null) return ResponseEntity.ok(List.of());
 	 * 
-	 * JsonNode array = extractArray(d); if (array == null || array.size() == 0)
-	 * return ResponseEntity.ok(List.of());
+	 * // orders is the correct key JsonNode array = d.path("orders");
+	 * 
+	 * if (array.isMissingNode() || !array.isArray() || array.size() == 0) return
+	 * ResponseEntity.ok(List.of());
 	 * 
 	 * List<Map> orders = new ArrayList<>(); int count = 0; for (JsonNode o : array)
 	 * { if (count++ >= 10) break; orders.add(objectMapper .convertValue(o,
-	 * Map.class)); } return ResponseEntity.ok(orders); }
+	 * Map.class)); }
 	 * 
-	 * private boolean hasOrders(JsonNode d) { return (d.has("orders") &&
-	 * d.path("orders").isArray() && d.path("orders").size() > 0) || (d.has("data")
-	 * && d.path("data").isArray() && d.path("data").size() > 0) || (d.isArray() &&
-	 * d.size() > 0); }
-	 * 
-	 * private JsonNode extractArray(JsonNode d) { if (d.has("orders") &&
-	 * d.path("orders").isArray()) return d.path("orders"); if (d.has("data") &&
-	 * d.path("data").isArray()) return d.path("data"); if (d.isArray()) return d;
-	 * return null; }
+	 * log.info("Returning {} orders", orders.size()); return
+	 * ResponseEntity.ok(orders); }
 	 */
-    @GetMapping("/orders/recent")
-    public ResponseEntity<List<Map>> getRecentOrders(
-            @RequestParam String riderToken) {
+    
+    @Operation(
+    	    summary = "0. Get recent orders",
+    	    description = """
+    	        Returns full order objects from Rider API.
+    	        Each order contains: orderId, items, pricing
+    	        (riderEarning, totalAmount, earningBreakup),
+    	        distanceTravelled, pickupAddress,
+    	        deliveredAddress, rating, deliveredAt.
+    	        Also returns summary: totalOrders,
+    	        totalRiderEarnings, totalDistance, avgRating.
+    	        Pass orderId to /riderchatbot/chat/start
+    	        """)
+    	@GetMapping("/orders/recent")
+    	public ResponseEntity<Map<String, Object>>
+    	        getRecentOrders(
+    	        @RequestParam String riderToken) {
 
-        // /api/orders/delivered → { success, count, orders: [...] }
-        JsonNode d = apiClient.getOrderHistory(riderToken);
+    	    JsonNode d = apiClient.getOrderHistory(riderToken);
 
-        log.info("getRecentOrders: {}",
-                 d != null ? d.toPrettyString()
-                     .substring(0, Math.min(300,
-                         d.toPrettyString().length()))
-                           : "NULL");
+    	    log.info("getRecentOrders raw: {}",
+    	             d != null ? d.toPrettyString()
+    	                 .substring(0, Math.min(400,
+    	                     d.toPrettyString().length()))
+    	                       : "NULL");
 
-        if (d == null)
-            return ResponseEntity.ok(List.of());
+    	    if (d == null)
+    	        return ResponseEntity.ok(Map.of(
+    	            "success", false,
+    	            "message", "Unable to fetch orders",
+    	            "data", List.of()));
 
-        // orders is the correct key
-        JsonNode array = d.path("orders");
-
-        if (array.isMissingNode()
-                || !array.isArray()
-                || array.size() == 0)
-            return ResponseEntity.ok(List.of());
-
-        List<Map> orders = new ArrayList<>();
-        int count = 0;
-        for (JsonNode o : array) {
-            if (count++ >= 10) break;
-            orders.add(objectMapper
-                .convertValue(o, Map.class));
-        }
-
-        log.info("Returning {} orders",
-                 orders.size());
-        return ResponseEntity.ok(orders);
-    }
+    	    // Return complete raw response
+    	    // so frontend gets exactly what rider API returns
+    	    return ResponseEntity.ok(
+    	        objectMapper.convertValue(d, Map.class));
+    	}
 
     @Operation(summary = "1. Start chat session")
     @PostMapping("/start")

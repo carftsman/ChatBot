@@ -57,8 +57,8 @@ public class RiderChatbotApiClient {
 
     public JsonNode getOrderHistory(String token) {
         return get(
-            //"/api/profile/orders/history?filter=all",
-        		"/api/orders/delivered",
+            "/api/profile/orders/history?filter=all",
+        		//"/api/orders/delivered",
             token);
     }
 

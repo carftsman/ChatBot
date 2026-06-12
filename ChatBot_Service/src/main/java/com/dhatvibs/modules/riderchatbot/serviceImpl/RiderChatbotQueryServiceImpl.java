@@ -181,35 +181,73 @@ public class RiderChatbotQueryServiceImpl
     
  // ── ORDERS ────────────────────────────────────
 
+	/*
+	 * @Override public String getOrderHistory(String token) { //
+	 * /api/orders/delivered // Response: { success, count, orders: [...] } JsonNode
+	 * d = apiClient.getOrderHistory(token); log.info("getOrderHistory: {}", d);
+	 * 
+	 * if (d == null) return "Unable to fetch orders.";
+	 * 
+	 * JsonNode orders = d.path("orders"); if (orders.isMissingNode() ||
+	 * !orders.isArray() || orders.size() == 0) return "No recent orders found.";
+	 * 
+	 * StringBuilder sb = new StringBuilder( "Recent Deliveries:\n"); int count = 0;
+	 * for (JsonNode o : orders) { if (count++ >= 5) break; sb.append("• ")
+	 * .append(get(o, "orderId", "_id", "id")) .append(" | Rs.") .append(get(o,
+	 * "riderEarnings", "amount", "totalAmount")) .append(" | ") .append(get(o,
+	 * "status", "orderStatus")) .append("\n"); } return sb.toString(); }
+	 */
+    
     @Override
     public String getOrderHistory(String token) {
-        // /api/orders/delivered
-        // Response: { success, count, orders: [...] }
         JsonNode d = apiClient.getOrderHistory(token);
         log.info("getOrderHistory: {}", d);
 
         if (d == null)
-            return "Unable to fetch orders.";
+            return "Unable to fetch order history.";
 
-        JsonNode orders = d.path("orders");
-        if (orders.isMissingNode() || !orders.isArray()
-                || orders.size() == 0)
-            return "No recent orders found.";
-
+        // Build summary from top level fields
         StringBuilder sb = new StringBuilder(
-            "Recent Deliveries:\n");
-        int count = 0;
-        for (JsonNode o : orders) {
-            if (count++ >= 5) break;
-            sb.append("• ")
-              .append(get(o, "orderId", "_id", "id"))
-              .append(" | Rs.")
-              .append(get(o, "riderEarnings",
-                  "amount", "totalAmount"))
-              .append(" | ")
-              .append(get(o, "status", "orderStatus"))
-              .append("\n");
+            "Order History Summary:\n");
+        sb.append("Total Orders: ")
+          .append(get(d, "totalOrders")).append("\n")
+          .append("Total Earnings: Rs.")
+          .append(get(d, "totalRiderEarnings")).append("\n")
+          .append("Total Distance: ")
+          .append(get(d, "totalDistance")).append(" km\n")
+          .append("Avg Rating: ")
+          .append(get(d, "avgRating")).append("/5\n\n");
+
+        // Show last 3 orders from data array
+        JsonNode orders = d.path("data");
+        if (!orders.isMissingNode()
+                && orders.isArray()
+                && orders.size() > 0) {
+            sb.append("Recent Deliveries:\n");
+            int count = 0;
+            for (JsonNode o : orders) {
+                if (count++ >= 3) break;
+
+                // riderEarning is inside pricing object
+                String earning = "N/A";
+                JsonNode pricing = o.path("pricing");
+                if (!pricing.isMissingNode()) {
+                    earning = get(pricing,
+                        "riderEarning",
+                        "totalAmount");
+                }
+
+                sb.append("• ")
+                  .append(get(o, "orderId"))
+                  .append(" | Rs.").append(earning)
+                  .append(" | ")
+                  .append(get(o, "pickupAddress"))
+                  .append(" → ")
+                  .append(get(o, "deliveredAddress"))
+                  .append("\n");
+            }
         }
+
         return sb.toString();
     }
 
